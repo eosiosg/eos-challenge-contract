@@ -1,7 +1,9 @@
 #include <test_contract.hpp>
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
+#include <ethash/keccak.hpp>
 
+const evmc_address zero_address{{0}};
 
 ACTION test_contract::hi( name nm ) {
    /* fill in action body */
@@ -13,7 +15,11 @@ ACTION test_contract::check(eosio::checksum256 &hash, const uint8_t version, con
   //evmc_address res = ecrecover(hash, version, r, s);
 }
 
-void test_contract::ecrecover2(const evmc_uint256be hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s){
+evmc_address test_contract::ecrecover2(const evmc_uint256be hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s){
+  if (version > 1) {
+	return zero_address;
+  }
+
   std::vector<uint8_t> signature;
   std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be),
 			std::back_inserter(signature));
