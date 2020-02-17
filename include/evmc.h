@@ -4,6 +4,10 @@
 #include <stddef.h>  /* Definition of size_t. */
 #include <stdint.h>  /* Definition of int64_t, uint64_t. */
 
+#if __cplusplus
+extern "C" {
+#endif
+
 
 struct evmc_bytes32
 {
@@ -19,3 +23,6 @@ struct evmc_address
     uint8_t bytes[20];
 };
 
+#if __cplusplus
+}
+#endif

@@ -2,17 +2,29 @@
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 #include <ethash/keccak.hpp>
+#include <calculate/add.hpp>
 
 const evmc_address zero_address{{0}};
 
 ACTION test_contract::hi( name nm ) {
    /* fill in action body */
    print_f("Name : %\n",nm);
+   eosio::print(add(10, 20));
 }
 
 ACTION test_contract::check(eosio::checksum256 &hash, const uint8_t version, const eosio::checksum256 r, const eosio::checksum256 s) {
-  hash.print();
-  //evmc_address res = ecrecover(hash, version, r, s);
+  //hash.print();
+  evmc_uint256be hash_evmc;
+  std::copy(hash.get_array().begin(), hash.get_array().end(), hash_evmc.bytes);
+  evmc_uint256be r_evmc;
+  std::copy(r.get_array().begin(), r.get_array().end(), r_evmc.bytes);
+  evmc_uint256be s_evmc;
+  std::copy(s.get_array().begin(), s.get_array().end(), s_evmc.bytes);
+
+  eosio::checksum160 addr;
+  evmc_address addr_evmc = ecrecover2(hash_evmc, version, r_evmc, s_evmc);
+  std::copy(addr_evmc.bytes, addr_evmc.bytes + sizeof(evmc_address), addr.data());
+  addr.print();
 }
 
 evmc_address test_contract::ecrecover2(const evmc_uint256be hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s){
