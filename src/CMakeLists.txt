@@ -7,6 +7,7 @@ add_subdirectory(secp256k1)
 link_libraries(secp256k1)
 add_subdirectory(ethash)
 link_libraries(ethash)
+link_libraries(keccak)
 add_subdirectory(calculate)
 link_libraries(calculate)
 
