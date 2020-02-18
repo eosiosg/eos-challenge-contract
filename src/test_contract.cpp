@@ -10,6 +10,8 @@ ACTION test_contract::hi( name nm ) {
    /* fill in action body */
    print_f("Name : %\n",nm);
    eosio::print(add(10, 20));
+   secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+   print_f("Name : %\n",nm);
 }
 
 ACTION test_contract::check(eosio::checksum256 &hash, const uint8_t version, const eosio::checksum256 r, const eosio::checksum256 s) {
