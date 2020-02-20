@@ -51,9 +51,6 @@ ACTION test_contract::hi( name nm ) {
 				ctx, &ecsig, (unsigned char *) &signature[0], version)) {
 		print("zero address");
 	}
- //    for (int kI = 0; kI < 64; ++kI) {
- //            print(ecsig.data[kI]);
- //    }
 
 	secp256k1_pubkey ecpubkey;
 	if (!secp256k1_ecdsa_recover(ctx, &ecpubkey, &ecsig, &msg_hash[0])) {
@@ -64,38 +61,34 @@ ACTION test_contract::hi( name nm ) {
 		print(ecpubkey.data[kI]);
 	}
 
-       size_t pubkeysize = 65;
-       unsigned char pubkey[65];
-       secp256k1_ec_pubkey_serialize(ctx, pubkey, &pubkeysize, &ecpubkey,
-       		SECP256K1_EC_UNCOMPRESSED);
-       print(" \npubkey is : ");
-       for (int kI = 0; kI < 64; ++kI) {
-       	print(pubkey[kI]);
-       }
+	size_t pubkeysize = 65;
+	unsigned char pubkey[65];
+	secp256k1_ec_pubkey_serialize(ctx, pubkey, &pubkeysize, &ecpubkey,
+			SECP256K1_EC_UNCOMPRESSED);
+	print(" \npubkey is : ");
+	for (int kI = 0; kI < 64; ++kI) {
+		print(pubkey[kI]);
+	}
 
-       assert(pubkey[0] == 4);
-       assert(pubkeysize == 65);
-       assert(pubkeysize > 1);
-       assert_b(pubkey[1] == 228, "1");
-       assert_b(pubkey[2] == 9, "1");
-       assert_b(pubkey[2] == 48, "1");
+	assert(pubkey[0] == 4);
+	assert(pubkeysize == 65);
+	assert(pubkeysize > 1);
 
-//
-//       auto pubkeyhash =
-//       	ethash::keccak256((uint8_t * )(pubkey + 1), pubkeysize - 1);
-//
-//       evmc_address address;
-//       std::copy(pubkeyhash.bytes + (sizeof(evmc_uint256be) - sizeof(evmc_address)),
-//       		pubkeyhash.bytes + sizeof(evmc_uint256be), address.bytes);
-//       print(" \naddress is : ");
-//       for (int kJ = 0; kJ < 20; ++kJ) {
-//       	print(address.bytes[kJ]);
-//       }
-//
+
+	auto pubkeyhash =
+		ethash::keccak256((uint8_t * )(pubkey + 1), pubkeysize - 1);
+
+	evmc_address address;
+	std::copy(pubkeyhash.bytes + (sizeof(evmc_uint256be) - sizeof(evmc_address)),
+			pubkeyhash.bytes + sizeof(evmc_uint256be), address.bytes);
+	print(" \naddress is : ");
+	for (int kJ = 0; kJ < 20; ++kJ) {
+		print(address.bytes[kJ]);
+	}
 }
 
 void test_contract::assert_b(bool test, const char *msg) {
-   eosio::internal_use_do_not_use::eosio_assert(static_cast<uint32_t>(test), msg);
+	eosio::internal_use_do_not_use::eosio_assert(static_cast<uint32_t>(test), msg);
 }
 
 ACTION test_contract::check(eosio::checksum256 &hash, const uint8_t version, const eosio::checksum256 r, const eosio::checksum256 s) {
