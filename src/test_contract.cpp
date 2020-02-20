@@ -33,7 +33,7 @@ std::vector<uint8_t> HexToBytes(const std::string &hex) {
 ACTION test_contract::hi( name nm ) {
 	/* fill in action body */
 	print_f("Name : %\n",nm);
-	secp256k1_context *ctx = secp256k1_context_create(0);
+	secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 	// hash
 	evmc_uint256be hash{{0}};
 	std::string hash_str = "92aef1b955b9de564fc50e31a55b470b0c8cdb931f186485d620729fb03d6f2c";
