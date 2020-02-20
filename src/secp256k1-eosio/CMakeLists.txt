@@ -25,16 +25,8 @@ target_include_directories(secp256k1
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/aggsig
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/bulletproofs
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/commitment
         ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/ecdh
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/generator
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/rangeproof
         ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/recovery
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/schnorrsig
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/surjection
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/modules/whitelist
         )
 
 target_compile_definitions(secp256k1 PRIVATE HAVE_CONFIG_H=1)
