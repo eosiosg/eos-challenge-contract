@@ -10,5 +10,5 @@ CONTRACT test_contract : public contract {
       evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
       void assert_b(bool test, const char *msg);
 
-      using hi_action = action_wrapper<"hi"_n, &test_contract::hi>;
+      using check_action = action_wrapper<"check"_n, &test_contract::check>;
 };
