@@ -113,4 +113,18 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
   return address;
 }
 
+void test_contract::raw(binary_code trx_code, eth_addr sender) {
 
+}
+
+void test_contract::create(name eos_account, std::string salt) {
+
+}
+
+void test_contract::transfer(name from) {
+
+}
+
+void test_contract::withdraw(name eos_account, asset amount) {
+
+}
