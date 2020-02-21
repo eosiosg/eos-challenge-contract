@@ -121,7 +121,7 @@ void test_contract::create(name eos_account, std::string salt) {
 
 }
 
-void test_contract::transfer(name from) {
+void test_contract::transfers(name from) {
 
 }
 

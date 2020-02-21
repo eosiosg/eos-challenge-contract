@@ -1,11 +1,12 @@
 #include <eosio/eosio.hpp>
+#include <eosio/asset.hpp>
 #include <evmc.h>
 using namespace eosio;
 
 CONTRACT test_contract : public contract {
    public:
       using contract::contract;
-      typedef std::vector<uint_8> binary_code;
+      typedef std::vector<uint8_t> binary_code;
       typedef eosio::checksum160  eth_addr;
 
       ACTION check( );
@@ -37,7 +38,7 @@ CONTRACT test_contract : public contract {
         eosio::checksum256 value;
 
         eosio::checksum256 primary_key() const { return key; };
-      }
+      };
 
       typedef eosio::multi_index<"accountstate"_n, st_account_state> tb_account_state;
 
@@ -46,7 +47,7 @@ CONTRACT test_contract : public contract {
         std::vector<uint8_t> bytecode;
 
 		eth_addr primary_key() const { return account_id; };
-      }
+      };
 
       typedef eosio::multi_index<"accountcode"_n, st_account_code> tb_account_code;
 
