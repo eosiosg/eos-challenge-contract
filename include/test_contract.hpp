@@ -1,6 +1,6 @@
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
-#include <evmc.h>
+#include <evmc/evmc.h>
 using namespace eosio;
 
 CONTRACT test_contract : public contract {
