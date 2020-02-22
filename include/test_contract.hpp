@@ -14,7 +14,7 @@ CONTRACT test_contract : public contract {
       ACTION check( );
       evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
       [[eosio::action]]
-      void raw(binary_code trx_code, eth_addr sender);
+      void raw();
       [[eosio::action]]
       void create(name eos_account, std::string salt);
       [[eosio::action]]

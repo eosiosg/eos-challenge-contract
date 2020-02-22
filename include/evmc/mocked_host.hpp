@@ -141,11 +141,11 @@ protected:
     /// @param addr  The address of the accessed account.
     void record_account_access(const address& addr) const
     {
-        if (recorded_account_accesses.empty())
-            recorded_account_accesses.reserve(max_recorded_account_accesses);
-
-        if (recorded_account_accesses.size() < max_recorded_account_accesses)
-            recorded_account_accesses.emplace_back(addr);
+//        if (recorded_account_accesses.empty())
+//            recorded_account_accesses.reserve(max_recorded_account_accesses);
+//
+//        if (recorded_account_accesses.size() < max_recorded_account_accesses)
+//            recorded_account_accesses.emplace_back(addr);
     }
 
     /// Returns true if an account exists (EVMC Host method).
@@ -158,15 +158,15 @@ protected:
     /// Get the account's storage value at the given key (EVMC Host method).
     bytes32 get_storage(const address& addr, const bytes32& key) const noexcept override
     {
-        record_account_access(addr);
-
-        const auto account_iter = accounts.find(addr);
-        if (account_iter == accounts.end())
-            return {};
-
-        const auto storage_iter = account_iter->second.storage.find(key);
-        if (storage_iter != account_iter->second.storage.end())
-            return storage_iter->second.value;
+//        record_account_access(addr);
+//
+//        const auto account_iter = accounts.find(addr);
+//        if (account_iter == accounts.end())
+//            return {};
+//
+//        const auto storage_iter = account_iter->second.storage.find(key);
+//        if (storage_iter != account_iter->second.storage.end())
+//            return storage_iter->second.value;
         return {};
     }
 
@@ -175,66 +175,66 @@ protected:
                                     const bytes32& key,
                                     const bytes32& value) noexcept override
     {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
-            return EVMC_STORAGE_UNCHANGED;
-
-        auto& old = it->second.storage[key];
-
+//        record_account_access(addr);
+//        const auto it = accounts.find(addr);
+//        if (it == accounts.end())
+//            return EVMC_STORAGE_UNCHANGED;
+//
+//        auto& old = it->second.storage[key];
+//
         // Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
         // WARNING! This is not complete implementation as refund is not handled here.
 
-        if (old.value == value)
-            return EVMC_STORAGE_UNCHANGED;
+//        if (old.value == value)
+//            return EVMC_STORAGE_UNCHANGED;
 
         evmc_storage_status status{};
-        if (!old.dirty)
-        {
-            old.dirty = true;
-            if (!old.value)
-                status = EVMC_STORAGE_ADDED;
-            else if (value)
-                status = EVMC_STORAGE_MODIFIED;
-            else
-                status = EVMC_STORAGE_DELETED;
-        }
-        else
-            status = EVMC_STORAGE_MODIFIED_AGAIN;
-
-        old.value = value;
+//        if (!old.dirty)
+//        {
+//            old.dirty = true;
+//            if (!old.value)
+//                status = EVMC_STORAGE_ADDED;
+//            else if (value)
+//                status = EVMC_STORAGE_MODIFIED;
+//            else
+//                status = EVMC_STORAGE_DELETED;
+//        }
+//        else
+//            status = EVMC_STORAGE_MODIFIED_AGAIN;
+//
+//        old.value = value;
         return status;
     }
 
     /// Get the account's balance (EVMC Host method).
     uint256be get_balance(const address& addr) const noexcept override
     {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
+//        record_account_access(addr);
+//        const auto it = accounts.find(addr);
+//        if (it == accounts.end())
             return {};
 
-        return it->second.balance;
+//        return it->second.balance;
     }
 
     /// Get the account's code size (EVMC host method).
     size_t get_code_size(const address& addr) const noexcept override
     {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
+//        record_account_access(addr);
+//        const auto it = accounts.find(addr);
+//        if (it == accounts.end())
             return 0;
-        return it->second.code.size();
+//        return it->second.code.size();
     }
 
     /// Get the account's code hash (EVMC host method).
     bytes32 get_code_hash(const address& addr) const noexcept override
     {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
+//        record_account_access(addr);
+//        const auto it = accounts.find(addr);
+//        if (it == accounts.end())
             return {};
-        return it->second.codehash;
+//        return it->second.codehash;
     }
 
     /// Copy the account's code to the given buffer (EVMC host method).
@@ -243,28 +243,28 @@ protected:
                      uint8_t* buffer_data,
                      size_t buffer_size) const noexcept override
     {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
+//        record_account_access(addr);
+//        const auto it = accounts.find(addr);
+//        if (it == accounts.end())
+//            return 0;
+//
+//        const auto& code = it->second.code;
+//
+//        if (code_offset >= code.size())
             return 0;
 
-        const auto& code = it->second.code;
+//        const auto n = std::min(buffer_size, code.size() - code_offset);
 
-        if (code_offset >= code.size())
-            return 0;
-
-        const auto n = std::min(buffer_size, code.size() - code_offset);
-
-        if (n > 0)
-            std::copy_n(&code[code_offset], n, buffer_data);
-        return n;
+//        if (n > 0)
+//            std::copy_n(&code[code_offset], n, buffer_data);
+//        return n;
     }
 
     /// Selfdestruct the account (EVMC host method).
     void selfdestruct(const address& addr, const address& beneficiary) noexcept override
     {
-        record_account_access(addr);
-        recorded_selfdestructs.push_back({addr, beneficiary});
+//        record_account_access(addr);
+//        recorded_selfdestructs.push_back({addr, beneficiary});
     }
 
     /// Call/create other contract (EVMC host method).
@@ -309,7 +309,8 @@ protected:
                   const bytes32 topics[],
                   size_t topics_count) noexcept override
     {
-        recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
+//        recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
     }
 };
 }  // namespace evmc
+
