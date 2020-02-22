@@ -116,25 +116,7 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 
 	return address;
 }
-/*
- *  auto vm = evmc::VM{evmc_create_evmone()};
 
- evmc::MockedHost host;
- evmc_revision rev = EVMC_BYZANTIUM;
- evmc_message msg{};
-//    const auto input = from_hex(input_hex);
-//    msg.input_data = input.data();
-//    msg.input_size = input.size();
-msg.gas = 2000;
-auto code = bytecode{"6007600d0160005260206000f3"};
-evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
-bytes_view output;
-output = {result.output_data, result.output_size};
-auto s = hex(output);
-printf("%s", s.c_str());
-return 0;
- *
- * */
 void test_contract::raw() {
 	evmc::MockedHost host;
 	evmc_revision rev = EVMC_BYZANTIUM;
@@ -155,10 +137,40 @@ void test_contract::create(name eos_account, std::string salt) {
 
 }
 
-void test_contract::transfers(name from) {
+void test_contract::transfers(name from, asset amount) {
+  require_auth(from);
+  tb_account _account(_self, _self.value);
+  auto by_eos_account_index = _account.get_index<name("eosio_account")>();
+  auto itr_eos_from = by_eos_account_index.find(from);
+  assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
 
+  action(
+	  permission_level{from, "active"_n},
+	  "eosio.token"_n,
+	  "transfer"_n,
+	  std::make_tuple(from, get_self(), amount, std::string(""))
+  ).send();
+  // update account table token balance
+  _account.modify(*itr_eos_from, _self, [&](uto &the_account) {
+    the_account.eosio_balance += amount;
+  });
 }
 
 void test_contract::withdraw(name eos_account, asset amount) {
+  require_auth(eos_account);
+  tb_account _account(_self, _self.value);
+  auto by_eos_account_index = _account.get_index<name("eosio_account")>();
+  auto itr_eos_from = by_eos_account_index.find(from);
+  assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
 
+  action(
+	  permission_level{from, "active"_n},
+	  "eosio.token"_n,
+	  "transfer"_n,
+	  std::make_tuple(get_self(), eos_account, amount, std::string(""))
+  ).send();
+  // update account table token balance
+  _account.modify(*itr_eos_from, _self, [&](uto &the_account) {
+	the_account.eosio_balance -= amount;
+  });
 }

@@ -18,14 +18,14 @@ CONTRACT test_contract : public contract {
       [[eosio::action]]
       void create(name eos_account, std::string salt);
       [[eosio::action]]
-      void transfers(name from);
+      void transfers(name from, asset amount);
       [[eosio::action]]
       void withdraw(name eos_account, asset amount);
 
       using check_action = action_wrapper<"check"_n, &test_contract::check>;
 
-      friend class EOSHostContext;
-   private:
+      EOSHostContext eos_mock_context;
+   public:
       struct [[eosio::table("test_contract")]] st_account {
 		eth_addr           account_id;
         eosio::checksum256 nonce;
@@ -33,9 +33,12 @@ CONTRACT test_contract : public contract {
         name               eosio_account;
 
 		eth_addr primary_key() const { return account_id; };
+		name by_eos() const { return eosio_account; };
       };
 
-      typedef eosio::multi_index<"account"_n, st_account> tb_account;
+      typedef eosio::multi_index<"account"_n, st_account,
+		  		indexed_by<name("eosio_account"), const_mem_fun<st_account, uint64_t, &st_account::by_eos>>
+	  > tb_account;
 
       struct [[eosio::table("test_contract")]] st_account_state {
         eosio::checksum256 key;
