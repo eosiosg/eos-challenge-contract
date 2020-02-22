@@ -1,13 +1,15 @@
+#pragma once
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <evmc/evmc.h>
+#include <eos_mock_host.hpp>
 using namespace eosio;
 
+typedef eosio::checksum160  eth_addr;
 CONTRACT test_contract : public contract {
    public:
       using contract::contract;
       typedef std::vector<uint8_t> binary_code;
-      typedef eosio::checksum160  eth_addr;
 
       ACTION check( );
       evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
@@ -21,6 +23,8 @@ CONTRACT test_contract : public contract {
       void withdraw(name eos_account, asset amount);
 
       using check_action = action_wrapper<"check"_n, &test_contract::check>;
+
+      friend class EOSHostContext;
    private:
       struct [[eosio::table("test_contract")]] st_account {
 		eth_addr           account_id;
