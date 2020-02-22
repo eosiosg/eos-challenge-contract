@@ -10,10 +10,6 @@ add_library(
 )
 
 add_library(evmc::instructions ALIAS instructions)
-set_target_properties(instructions PROPERTIES
-    OUTPUT_NAME evmc-instructions
-    POSITION_INDEPENDENT_CODE TRUE
-)
 target_include_directories(instructions PUBLIC
     $<BUILD_INTERFACE:${include_dir}>$<INSTALL_INTERFACE:include>
 )

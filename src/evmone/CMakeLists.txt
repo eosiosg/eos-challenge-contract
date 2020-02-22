@@ -46,6 +46,8 @@ link_libraries(ethash)
 
 #option(EVMC_TOOLS "Build EVMC test tools" ${EVMONE_TESTING})
 #option(EVMC_INSTALL "Install EVMC" OFF)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/evmc/include)
+include_directories(${CMAKE_SOURCE_DIR}/../intx/include)
 add_subdirectory(evmc)
 
 #cable_configure_compiler()
@@ -62,9 +64,6 @@ add_subdirectory(evmc)
 #    add_compile_options(/wd5030)  # Allow using unknown attributes.
 #endif()
 
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 
 #if(EVMONE_FUZZING)
 #    if(NOT ${CMAKE_CXX_COMPILER_ID} MATCHES Clang OR ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 8)

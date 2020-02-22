@@ -7,7 +7,7 @@
 #include <evmc/evmc.hpp>
 #include <evmc/instructions.h>
 #include <evmc/utils.h>
-#include <intx/intx.hpp>
+#include <intx.hpp>
 #include <array>
 #include <cstdint>
 #include <vector>
