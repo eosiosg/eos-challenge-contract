@@ -138,39 +138,40 @@ void test_contract::create(name eos_account, std::string salt) {
 }
 
 void test_contract::transfers(name from, asset amount) {
-  require_auth(from);
-  tb_account _account(_self, _self.value);
-  auto by_eos_account_index = _account.get_index<name("eosio_account")>();
-  auto itr_eos_from = by_eos_account_index.find(from);
-  assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
+	require_auth(from);
+	tb_account _account(_self, _self.value);
+	auto by_eos_account_index = _account.get_index<name("byeos")>();
+	auto itr_eos_from = by_eos_account_index.find(from.value);
+	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
 
-  action(
-	  permission_level{from, "active"_n},
-	  "eosio.token"_n,
-	  "transfer"_n,
-	  std::make_tuple(from, get_self(), amount, std::string(""))
-  ).send();
-  // update account table token balance
-  _account.modify(*itr_eos_from, _self, [&](uto &the_account) {
-    the_account.eosio_balance += amount;
-  });
+	action(
+			permission_level{from, "active"_n},
+			"eosio.token"_n,
+			"transfer"_n,
+			std::make_tuple(from, _self, amount, std::string(""))
+	      ).send();
+	// update account table token balance
+	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
+			the_account.eosio_balance += amount;
+			});
 }
 
 void test_contract::withdraw(name eos_account, asset amount) {
-  require_auth(eos_account);
-  tb_account _account(_self, _self.value);
-  auto by_eos_account_index = _account.get_index<name("eosio_account")>();
-  auto itr_eos_from = by_eos_account_index.find(from);
-  assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
+	require_auth(eos_account);
+	tb_account _account(_self, _self.value);
+	auto by_eos_account_index = _account.get_index<name("byeos")>();
+	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
+	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
 
-  action(
-	  permission_level{from, "active"_n},
-	  "eosio.token"_n,
-	  "transfer"_n,
-	  std::make_tuple(get_self(), eos_account, amount, std::string(""))
-  ).send();
-  // update account table token balance
-  _account.modify(*itr_eos_from, _self, [&](uto &the_account) {
-	the_account.eosio_balance -= amount;
-  });
+	action(
+			permission_level{eos_account, "active"_n},
+			"eosio.token"_n,
+			"transfer"_n,
+			std::make_tuple(_self, eos_account, amount, std::string(""))
+	      ).send();
+	// update account table token balance
+	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
+			the_account.eosio_balance -= amount;
+			});
 }
+
