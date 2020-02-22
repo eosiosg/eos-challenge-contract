@@ -117,7 +117,7 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 	return address;
 }
 
-void test_contract::raw() {
+void test_contract::raw_test() {
 	evmc::MockedHost host;
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
@@ -133,8 +133,36 @@ void test_contract::raw() {
 	printhex(output.data(), output.size());
 }
 
-void test_contract::create(name eos_account, std::string salt) {
+void test_contract::raw(binary_code trx_code, eosio::checksum160 sender) {
+  	//TODO what in the trx_code??
+  	// 1. which contract?
+  	// 2. transaction signature?
+  	// 3. trx_code may be set code... and need to update table
+}
 
+
+void test_contract::create(name eos_account, std::string salt) {
+  	require_auth(eos_account);
+  	/// TODO just use eosio_account string + salt and rlp
+	std::string eos_str = eos_account.to_string();
+	std::string combine = eos_str + salt;
+	std::string eth_str = rplEncode(combine);
+
+  	auto eth = eosio::ripemd160((const char *)eth_str.c_str(), 20);
+	// copy to eosio::sha160 to eosio::sha256
+	auto eth_array = eth.extract_as_byte_array();
+	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
+
+  	tb_account _account(_self, _self.value);
+  	auto by_eth_account_idex = _account.get_index<name("byeth")>();
+  	auto itr_eth_addr = by_eth_account_idex.find(eth_address);
+  	assert_b(itr_eth_addr == by_eth_account_idex.end(), "already have eth address");
+	_account.emplace(_self, [&](auto &the_account) {
+	  the_account.eth_address = eth_address;
+	  the_account.nonce = eosio::sha256(salt.c_str(), 32);
+	  the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
+	  the_account.eosio_account = eos_account;
+	});
 }
 
 void test_contract::transfers(name from, asset amount) {
@@ -152,8 +180,8 @@ void test_contract::transfers(name from, asset amount) {
 	      ).send();
 	// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-			the_account.eosio_balance += amount;
-			});
+	  the_account.eosio_balance += amount;
+	});
 }
 
 void test_contract::withdraw(name eos_account, asset amount) {
@@ -171,7 +199,81 @@ void test_contract::withdraw(name eos_account, asset amount) {
 	      ).send();
 	// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-			the_account.eosio_balance -= amount;
-			});
+	  the_account.eosio_balance -= amount;
+	});
 }
 
+void test_contract::setcode(eth_addr eth_address, hex_code evm_code) {
+  	// find eos account to check auth
+  	tb_account _account(_self, _self.value);
+  	auto by_eth_account_index = _account.get_index<name("byeth")>();
+  	auto itr_eth_addr = by_eth_account_index.find(eth_address);
+  	assert_b(itr_eth_addr != by_eth_account_index.end(), "no such eth account");
+
+  	name eos_account = itr_eth_addr->eosio_account;
+  	require_auth(eos_account);
+
+  	// set code and use eos_account ram
+    tb_account_code _account_code(_self, _self.value);
+    auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+    auto itr_eth_code = by_eth_account_code_index.find(eth_address);
+    if (itr_eth_code == by_eth_account_code_index.end()) {
+	  _account_code.emplace(eos_account, [&](auto &the_account_code){
+		the_account_code.eth_address = eth_address;
+		the_account_code.bytecode = HexToBytes(evm_code);
+	  });
+	} else {
+      _account_code.modify(*itr_eth_code, eos_account, [&](auto &the_account_code){
+        the_account_code.bytecode = HexToBytes(evm_code);
+      });
+    }
+}
+
+
+std::string test_contract::encodeBinary(uint64_t n) {
+  std::string rs;
+
+  if (n == 0) {
+	// do nothing; return empty string
+	return "";
+  } else {
+	rs.assign(encodeBinary(n / 256));
+
+	unsigned char ch = n % 256;
+	rs.append((const char *) &ch, 1);
+  }
+
+  return rs;
+}
+
+std::string test_contract::encodeLength(size_t n, unsigned char offset){
+  std::string rs;
+  ///TODO check
+//  assert_b(n < 256 ** 8, "n too big");
+
+  if (n < 56) {
+	unsigned char ch = n + offset;
+	rs.assign((const char *) &ch, 1);
+  } else {
+	std::string binlen = encodeBinary(n);
+
+	unsigned char ch = binlen.size() + offset + 55;
+	rs.assign((const char *) &ch, 1);
+	rs.append(binlen);
+  }
+
+  return rs;
+}
+
+std::string test_contract::rplEncode(std::string val) {
+  std::string s;
+  const char *p = val.size() ? val.c_str() : nullptr;
+  size_t sz = val.size();
+
+  if ((sz == 1) && (p[0] < 0x80))
+	s.append((const char *) p, 1);
+  else
+	s += encodeLength(sz, 0x80) + val;
+
+  return s;
+}
