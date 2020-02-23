@@ -146,9 +146,9 @@ void test_contract::raw(binary_code trx_code, eosio::checksum160 sender) {
 
 void test_contract::create(name eos_account, std::string salt) {
   	require_auth(eos_account);
-  	/// TODO just use eosio_account string + salt and rlp
+  	/// TODO just use eosio_account string + eos_account.size() + salt and rlp
 	std::string eos_str = eos_account.to_string();
-	std::string combine = eos_str + salt;
+	std::string combine = eos_str + std::to_string(eos_str.size()) + salt;
 	std::string eth_str = rplEncode(combine);
 
   	auto eth = ethash::keccak256((uint8_t *) eth_str.c_str(), eth_str.size());
