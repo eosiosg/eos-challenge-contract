@@ -10,6 +10,9 @@
 
 const evmc_address zero_address{{0}};
 
+test_contract::test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds){
+}
+
 std::vector<uint8_t> HexToBytes(const std::string &hex) {
 	std::vector<uint8_t> bytes;
 
@@ -22,7 +25,7 @@ std::vector<uint8_t> HexToBytes(const std::string &hex) {
 	return bytes;
 }
 
-ACTION test_contract::check( ) {
+void test_contract::check( ) {
 	/* fill in action body */
 	secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 	// hash
@@ -117,8 +120,9 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 	return address;
 }
 
-void test_contract::raw_test() {
-	evmc::MockedHost host;
+void test_contract::rawtest() {
+//	EOSHostContext *host = new EOSHostContext(std::make_shared<eosio::contract>(*this));
+  	evmc::MockedHost host;
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
 
@@ -154,9 +158,9 @@ void test_contract::create(name eos_account, std::string salt) {
 	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
 
   	tb_account _account(_self, _self.value);
-  	auto by_eth_account_idex = _account.get_index<name("byeth")>();
-  	auto itr_eth_addr = by_eth_account_idex.find(eth_address);
-  	assert_b(itr_eth_addr == by_eth_account_idex.end(), "already have eth address");
+  	auto by_eth_account_index = _account.get_index<name("byeth")>();
+  	auto itr_eth_addr = by_eth_account_index.find(eth_address);
+  	assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
 	_account.emplace(_self, [&](auto &the_account) {
 	  the_account.eth_address = eth_address;
 	  the_account.nonce = eosio::sha256(salt.c_str(), 32);

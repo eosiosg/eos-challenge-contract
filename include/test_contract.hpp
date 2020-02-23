@@ -7,16 +7,19 @@
 using namespace eosio;
 
 typedef eosio::checksum256  eth_addr;
-CONTRACT test_contract : public contract {
+typedef std::vector<uint8_t> binary_code;
+typedef std::string          hex_code;
+
+class [[eosio::contract("test_contract")]] test_contract : public contract {
 	public:
 		using contract::contract;
-		typedef std::vector<uint8_t> binary_code;
-		typedef std::string          hex_code;
 
-		ACTION check( );
-		evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
+		explicit test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
+
 		[[eosio::action]]
-		void raw_test();
+		void check();
+		[[eosio::action]]
+		void rawtest();
 		[[eosio::action]]
 		void raw(binary_code trx_code, eosio::checksum160 sender);
 		[[eosio::action]]
@@ -76,6 +79,8 @@ CONTRACT test_contract : public contract {
 		std::string encodeBinary(uint64_t n);
 		std::string encodeLength(size_t n, unsigned char offset);
 		std::string rplEncode(std::string val);
+		// address recover
+		evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
 
 };
 
