@@ -149,8 +149,8 @@ void test_contract::create(name eos_account, std::string salt) {
   	// check eosio account exist
   	tb_account _account(_self, _self.value);
   	auto by_eos_account_index = _account.get_index<name("byeos")>();
-  	auto itr_eos_addr = by_eos_account_index.find(eos_account);
-  	assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address")
+  	auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
+  	assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
   	/// TODO just use eosio_account string + eos_account.size() + salt and rlp
 	std::string eos_str = eos_account.to_string();
 	std::string combine = eos_str + std::to_string(eos_str.size()) + salt;
