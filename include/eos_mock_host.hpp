@@ -49,7 +49,7 @@ struct MockedAccount {
   uint256be balance;
 
   /// The account storage map.
-  std::unordered_map<bytes32, storage_value> storage;
+  std::map<bytes32, storage_value> storage;
 
   /// Helper method for setting balance by numeric type.
   void set_balance(uint64_t x) noexcept {
@@ -175,34 +175,34 @@ class EOSHostContext : public Host {
   evmc_storage_status set_storage(const address &addr,
 								  const bytes32 &key,
 								  const bytes32 &value) noexcept override {
-//        record_account_access(addr);
-//        const auto it = accounts.find(addr);
-//        if (it == accounts.end())
-//            return EVMC_STORAGE_UNCHANGED;
-//
-//        auto& old = it->second.storage[key];
-//
-	// Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
-	// WARNING! This is not complete implementation as refund is not handled here.
+       record_account_access(addr);
+       const auto it = accounts.find(addr);
+       if (it == accounts.end())
+           return EVMC_STORAGE_UNCHANGED;
 
-//        if (old.value == value)
-//            return EVMC_STORAGE_UNCHANGED;
-
-	evmc_storage_status status{};
-//        if (!old.dirty)
-//        {
-//            old.dirty = true;
-//            if (!old.value)
-//                status = EVMC_STORAGE_ADDED;
-//            else if (value)
-//                status = EVMC_STORAGE_MODIFIED;
-//            else
-//                status = EVMC_STORAGE_DELETED;
-//        }
-//        else
-//            status = EVMC_STORAGE_MODIFIED_AGAIN;
-//
-//        old.value = value;
+       auto old = it->second.storage[key];
+ 
+     // Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
+     // WARNING! This is not complete implementation as refund is not handled here.
+ 
+       if (old.value == value)
+           return EVMC_STORAGE_UNCHANGED;
+ 
+       evmc_storage_status status{};
+       if (!old.dirty)
+       {
+           old.dirty = true;
+           if (!old.value)
+               status = EVMC_STORAGE_ADDED;
+           else if (value)
+               status = EVMC_STORAGE_MODIFIED;
+           else
+               status = EVMC_STORAGE_DELETED;
+       }
+       else
+           status = EVMC_STORAGE_MODIFIED_AGAIN;
+ 
+       old.value = value;
 	return status;
   }
 
@@ -251,27 +251,27 @@ class EOSHostContext : public Host {
 				   size_t code_offset,
 				   uint8_t *buffer_data,
 				   size_t buffer_size) const noexcept override {
-//        record_account_access(addr);
-//        const auto it = accounts.find(addr);
-//        if (it == accounts.end())
-//            return 0;
-//
-//        const auto& code = it->second.code;
-//
-//        if (code_offset >= code.size())
-	return 0;
+        record_account_access(addr);
+        const auto it = accounts.find(addr);
+        if (it == accounts.end())
+            return 0;
 
-//        const auto n = std::min(buffer_size, code.size() - code_offset);
+        const auto& code = it->second.code;
 
-//        if (n > 0)
-//            std::copy_n(&code[code_offset], n, buffer_data);
-//        return n;
+        if (code_offset >= code.size())
+		return 0;
+
+        const auto n = std::min(buffer_size, code.size() - code_offset);
+
+        if (n > 0)
+            std::copy_n(&code[code_offset], n, buffer_data);
+        return n;
   }
 
   /// Selfdestruct the account (EVMC host method).
   void selfdestruct(const address &addr, const address &beneficiary) noexcept override {
-//        record_account_access(addr);
-//        recorded_selfdestructs.push_back({addr, beneficiary});
+        record_account_access(addr);
+        recorded_selfdestructs.push_back({addr, beneficiary});
   }
 
   /// Call/create other contract (EVMC host method).
@@ -310,7 +310,7 @@ class EOSHostContext : public Host {
 				size_t data_size,
 				const bytes32 topics[],
 				size_t topics_count) noexcept override {
-//        recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
+        recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
   }
 
   void assert_b(bool test, const char *msg) const {
