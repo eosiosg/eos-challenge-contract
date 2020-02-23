@@ -146,6 +146,11 @@ void test_contract::raw(binary_code trx_code, eosio::checksum160 sender) {
 
 void test_contract::create(name eos_account, std::string salt) {
   	require_auth(eos_account);
+  	// check eosio account exist
+  	tb_account _account(_self, _self.value);
+  	auto by_eos_account_index = _account.get_index<name("byeos")>();
+  	auto itr_eos_addr = by_eos_account_index.find(eos_account);
+  	assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address")
   	/// TODO just use eosio_account string + eos_account.size() + salt and rlp
 	std::string eos_str = eos_account.to_string();
 	std::string combine = eos_str + std::to_string(eos_str.size()) + salt;
@@ -158,10 +163,10 @@ void test_contract::create(name eos_account, std::string salt) {
   	std::copy_n(&eth_bytes[0] + 12, 20, eth_array.begin());
 	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
 
-  	tb_account _account(_self, _self.value);
   	auto by_eth_account_index = _account.get_index<name("byeth")>();
   	auto itr_eth_addr = by_eth_account_index.find(eth_address);
   	assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+
 	_account.emplace(_self, [&](auto &the_account) {
 	  the_account.id = _account.available_primary_key();
 	  the_account.eth_address = eth_address;
