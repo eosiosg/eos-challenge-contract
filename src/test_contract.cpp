@@ -151,9 +151,11 @@ void test_contract::create(name eos_account, std::string salt) {
 	std::string combine = eos_str + salt;
 	std::string eth_str = rplEncode(combine);
 
-  	auto eth = eosio::ripemd160((const char *)eth_str.c_str(), 20);
-	// copy to eosio::sha160 to eosio::sha256
-	auto eth_array = eth.extract_as_byte_array();
+  	auto eth = ethash::keccak256((uint8_t *) eth_str.c_str(), eth_str.size());
+  	auto eth_bytes = eth.bytes;
+	// transfer uint8_t [32] to std::array
+  	std::array<uint8_t, 32> eth_array;
+  	std::copy_n(&eth_bytes[0] + 12, 20, eth_array.begin());
 	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
 
   	tb_account _account(_self, _self.value);
@@ -161,6 +163,7 @@ void test_contract::create(name eos_account, std::string salt) {
   	auto itr_eth_addr = by_eth_account_index.find(eth_address);
   	assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
 	_account.emplace(_self, [&](auto &the_account) {
+	  the_account.id = _account.available_primary_key();
 	  the_account.eth_address = eth_address;
 	  the_account.nonce = eosio::sha256(salt.c_str(), 32);
 	  the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
@@ -222,6 +225,7 @@ void test_contract::setcode(eth_addr eth_address, hex_code evm_code) {
     auto itr_eth_code = by_eth_account_code_index.find(eth_address);
     if (itr_eth_code == by_eth_account_code_index.end()) {
 	  _account_code.emplace(eos_account, [&](auto &the_account_code){
+	    the_account_code.id = _account_code.available_primary_key();
 		the_account_code.eth_address = eth_address;
 		the_account_code.bytecode = HexToBytes(evm_code);
 	  });

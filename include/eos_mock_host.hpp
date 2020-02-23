@@ -94,7 +94,7 @@ class EOSHostContext : public Host {
   };
 
   /// contract
-  EOSHostContext(std::shared_ptr<eosio::contract> contract_ptr): _contract(contract_ptr) {};
+  EOSHostContext(std::shared_ptr<eosio::contract> contract_ptr) : _contract(contract_ptr) {};
   std::shared_ptr<eosio::contract> _contract;
 
   /// The set of all accounts in the Host, organized by their addresses.
@@ -146,11 +146,18 @@ class EOSHostContext : public Host {
 	  recorded_account_accesses.emplace_back(addr);
   }
 
+  eosio::checksum256 byte_array_addr_to_eth_addr(const address &addr) const {
+    auto addr_bytes = addr.bytes;
+    std::array<uint8_t, 32> eth_array;
+    std::copy_n(&addr_bytes[0], 20, eth_array.begin());
+    eth_addr _addr = eosio::fixed_bytes<32>(eth_array);
+    return _addr;
+  }
+
   /// Returns true if an account exists (EVMC Host method).
   bool account_exists(const address &addr) const noexcept override {
 	record_account_access(addr);
-	/// TODO uint8_t bytes[20]; copy to eosio::checksum160
-	eth_addr _addr;
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -175,40 +182,38 @@ class EOSHostContext : public Host {
   evmc_storage_status set_storage(const address &addr,
 								  const bytes32 &key,
 								  const bytes32 &value) noexcept override {
-       record_account_access(addr);
-       const auto it = accounts.find(addr);
-       if (it == accounts.end())
-           return EVMC_STORAGE_UNCHANGED;
+	record_account_access(addr);
+	const auto it = accounts.find(addr);
+	if (it == accounts.end())
+	  return EVMC_STORAGE_UNCHANGED;
 
-       auto old = it->second.storage[key];
- 
-     // Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
-     // WARNING! This is not complete implementation as refund is not handled here.
- 
-       if (old.value == value)
-           return EVMC_STORAGE_UNCHANGED;
- 
-       evmc_storage_status status{};
-       if (!old.dirty)
-       {
-           old.dirty = true;
-           if (!old.value)
-               status = EVMC_STORAGE_ADDED;
-           else if (value)
-               status = EVMC_STORAGE_MODIFIED;
-           else
-               status = EVMC_STORAGE_DELETED;
-       }
-       else
-           status = EVMC_STORAGE_MODIFIED_AGAIN;
- 
-       old.value = value;
+	auto old = it->second.storage[key];
+
+	// Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
+	// WARNING! This is not complete implementation as refund is not handled here.
+
+	if (old.value == value)
+	  return EVMC_STORAGE_UNCHANGED;
+
+	evmc_storage_status status{};
+	if (!old.dirty) {
+	  old.dirty = true;
+	  if (!old.value)
+		status = EVMC_STORAGE_ADDED;
+	  else if (value)
+		status = EVMC_STORAGE_MODIFIED;
+	  else
+		status = EVMC_STORAGE_DELETED;
+	} else
+	  status = EVMC_STORAGE_MODIFIED_AGAIN;
+
+	old.value = value;
 	return status;
   }
 
   /// Get the account's balance (EVMC Host method).
   uint256be get_balance(const address &addr) const noexcept override {
-	eth_addr _addr;
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -221,7 +226,7 @@ class EOSHostContext : public Host {
 
   /// Get the account's code size (EVMC host method).
   size_t get_code_size(const address &addr) const noexcept override {
-	eth_addr _addr;
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
@@ -232,13 +237,13 @@ class EOSHostContext : public Host {
 
   /// Get the account's code hash (EVMC host method).
   bytes32 get_code_hash(const address &addr) const noexcept override {
-	eth_addr _addr;
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
 	auto code = itr_eth_code->bytecode;
-	/// code to hex string then sha256
+	/// TODO code to hex string then sha256
 //  eosio::checksum256 hash_val = eosio::sha256(salt.c_str(), 32);
 
 	/// convert eosio::checksum256 to evmc::byte32
@@ -251,27 +256,27 @@ class EOSHostContext : public Host {
 				   size_t code_offset,
 				   uint8_t *buffer_data,
 				   size_t buffer_size) const noexcept override {
-        record_account_access(addr);
-        const auto it = accounts.find(addr);
-        if (it == accounts.end())
-            return 0;
+	record_account_access(addr);
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
+	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
+	auto itr_eth_code = by_eth_account_code_index.find(_addr);
+	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
+	auto code = itr_eth_code->bytecode;
 
-        const auto& code = it->second.code;
+	if (code_offset >= code.size()) return 0;
 
-        if (code_offset >= code.size())
-		return 0;
-
-        const auto n = std::min(buffer_size, code.size() - code_offset);
-
-        if (n > 0)
-            std::copy_n(&code[code_offset], n, buffer_data);
-        return n;
+	const auto n = std::min(buffer_size, code.size() - code_offset);
+	if (n > 0) {
+	  std::copy_n(&code[code_offset], n, buffer_data);
+	}
+	return n;
   }
 
   /// Selfdestruct the account (EVMC host method).
   void selfdestruct(const address &addr, const address &beneficiary) noexcept override {
-        record_account_access(addr);
-        recorded_selfdestructs.push_back({addr, beneficiary});
+	record_account_access(addr);
+	recorded_selfdestructs.push_back({addr, beneficiary});
   }
 
   /// Call/create other contract (EVMC host method).
@@ -310,7 +315,7 @@ class EOSHostContext : public Host {
 				size_t data_size,
 				const bytes32 topics[],
 				size_t topics_count) noexcept override {
-        recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
+	recorded_logs.push_back({addr, {data, data_size}, {topics, topics + topics_count}});
   }
 
   void assert_b(bool test, const char *msg) const {
