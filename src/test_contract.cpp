@@ -5,7 +5,7 @@
 
 #include <evmone/execution.hpp>
 #include <evmc/evmc.hpp>
-#include <evmc/mocked_host.hpp>
+#include <eos_mock_host.hpp>
 #include <evmone/evmone.h>
 
 const evmc_address zero_address{{0}};
@@ -121,8 +121,7 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 }
 
 void test_contract::rawtest() {
-//	EOSHostContext *host = new EOSHostContext(std::make_shared<eosio::contract>(*this));
-  	evmc::MockedHost host;
+	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
 

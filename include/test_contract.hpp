@@ -3,7 +3,6 @@
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
 #include <evmc/evmc.h>
-#include <eos_mock_host.hpp>
 using namespace eosio;
 
 typedef eosio::checksum256  eth_addr;

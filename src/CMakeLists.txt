@@ -15,7 +15,7 @@ link_libraries(intx)
 add_subdirectory(evmone)
 link_libraries(evmone)
 
-add_contract( test_contract test_contract test_contract.cpp eos_mock_host.cpp )
+add_contract( test_contract test_contract test_contract.cpp )
 target_include_directories( test_contract PUBLIC ${CMAKE_SOURCE_DIR}/../include )
 target_include_directories( test_contract PUBLIC ${CMAKE_SOURCE_DIR}/intx/include/intx)
 target_include_directories( test_contract PUBLIC
