@@ -94,7 +94,7 @@ class EOSHostContext : public Host {
   };
 
   /// contract
-  EOSHostContext(std::shared_ptr<eosio::contract> contract_ptr);
+  EOSHostContext(std::shared_ptr<eosio::contract> contract_ptr): _contract(contract_ptr) {};
   std::shared_ptr<eosio::contract> _contract;
 
   /// The set of all accounts in the Host, organized by their addresses.
@@ -168,6 +168,7 @@ class EOSHostContext : public Host {
 	const auto storage_iter = account_iter->second.storage.find(key);
 	if (storage_iter != account_iter->second.storage.end())
 	  return storage_iter->second.value;
+	return {};
   }
 
   /// Set the account's storage value (EVMC Host method).
