@@ -7,6 +7,7 @@
 #include <evmc/evmc.hpp>
 #include <eos_mock_host.hpp>
 #include <evmone/evmone.h>
+#include <bytecode.hpp>
 
 const evmc_address zero_address{{0}};
 
@@ -125,9 +126,12 @@ void test_contract::rawtest() {
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
 
+  	auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6);
 	msg.gas = 2000;
 	auto vm = evmc::VM{evmc_create_evmone()};
-	std::vector<uint8_t> code = HexToBytes("6007600d0160005260206000f3");
+	// "6007600d0160005260206000f3"
+	// return 0x14
+//	std::vector<uint8_t> code = HexToBytes(hexcode);
 	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
 	evmc::bytes output;
 	output = {result.output_data, result.output_size};

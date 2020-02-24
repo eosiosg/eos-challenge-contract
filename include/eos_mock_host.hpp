@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <eosio/eosio.hpp>
+#include <eosio/action.hpp>
 #include <test_contract.hpp>
 
 using namespace eosio;
@@ -218,8 +219,10 @@ class EOSHostContext : public Host {
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 
-	asset contract_balance = itr_eth_addr->eosio_balance;
+	asset eos_balance = itr_eth_addr->eosio_balance;
+	uint64_t eos_value = eos_balance.amount;
 	uint256be balance;
+	balance.bytes[0] = 0x20;
 	/// convert contract_balance to bytes32
 	return balance;
   }
@@ -301,7 +304,27 @@ class EOSHostContext : public Host {
   }
 
   /// Get transaction context (EVMC host method).
-  evmc_tx_context get_tx_context() const noexcept override { return tx_context; }
+  evmc_tx_context get_tx_context() const noexcept override {
+	evmc_tx_context result = {};
+//    result.tx_gas_price = toEvmC(m_extVM.gasPrice); /**< The transaction gas price. */
+//    result.tx_origin = toEvmC(m_extVM.origin); /**< The transaction origin account. */
+//    result.block_coinbase = toEvmC(envInfo.author());  /**< The miner of the block. */
+//    result.block_number = envInfo.number();          /**< The block number. */
+//    result.block_timestamp = envInfo.timestamp();    /**< The block timestamp. */
+//    result.block_gas_limit = static_cast<int64_t>(envInfo.gasLimit());
+//    result.block_difficulty = toEvmC(envInfo.difficulty());
+//    result.chain_id = toEvmC(envInfo.chainID());  /**< The blockchain's ChainID. */
+
+//	result.tx_gas_price = 100;
+//	result.tx_origin = current_receiver();
+//	result.block_coinbase = name{eosio};
+//	result.block_number = eosio::tapos_block_num();
+//	result.block_timestamp = eosio::publication_time();
+//	result.block_gas_limit = 10000;
+//	result.block_difficulty = 10;
+
+    return result;
+  }
 
   /// Get the block header hash (EVMC host method).
   bytes32 get_block_hash(int64_t block_number) const noexcept override {
