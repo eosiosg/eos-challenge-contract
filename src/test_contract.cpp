@@ -108,6 +108,13 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 	return address;
 }
 
+void test_contract::hexcodegen() {
+    	auto const code = bytecode{} + OP_TIMESTAMP + OP_COINBASE + OP_OR + OP_GASPRICE + OP_OR +
+                      OP_NUMBER + OP_OR + OP_DIFFICULTY + OP_OR + OP_GASLIMIT + OP_OR + OP_ORIGIN +
+                      OP_OR + OP_CHAINID + OP_OR + ret_top();	
+	printhex(code.data(), code.size());
+}
+
 /// pass hex code to execute in evm
 /// auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6); == 30316000526006601af3
 /// "30316000526006601af3"  get balance
