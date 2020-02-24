@@ -11,7 +11,6 @@
 #include <eosio/eosio.hpp>
 #include <eosio/action.hpp>
 #include <test_contract.hpp>
-#include <sstream>
 #include <utils.hpp>
 
 using namespace eosio;
@@ -224,9 +223,7 @@ class EOSHostContext : public Host {
 	asset eos_balance = itr_eth_addr->eosio_balance;
 	uint64_t eos_value = eos_balance.amount;
 	uint256be balance;
-	std::stringstream sstream;
-	sstream << std::hex << eos_value;
-	std::string balance_str = sstream.str();
+	std::string balance_str = int2hex(eos_value);
 	auto hex_balance = HexToBytes(balance_str);
 	std::copy(hex_balance.begin(), hex_balance.end(), &balance.bytes[20]);
 	/// convert contract_balance to bytes32

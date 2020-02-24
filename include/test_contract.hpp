@@ -19,7 +19,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void check();
 		[[eosio::action]]
-		void rawtest();
+		void rawtest(hex_code hexcode);
 		[[eosio::action]]
 		void raw(binary_code trx_code, eosio::checksum160 sender);
 		[[eosio::action]]

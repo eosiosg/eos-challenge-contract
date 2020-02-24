@@ -10,10 +10,9 @@ using bytes = std::basic_string<uint8_t>;
 using bytes_view = std::basic_string_view<uint8_t>;
 
 /// Encode a byte to a hex string.
-inline std::string hex(uint8_t b) noexcept
-{
-    static constexpr auto hex_chars = "0123456789abcdef";
-    return {hex_chars[b >> 4], hex_chars[b & 0xf]};
+inline std::string hex(uint8_t b) noexcept {
+  static constexpr auto hex_chars = "0123456789abcdef";
+  return {hex_chars[b >> 4], hex_chars[b & 0xf]};
 }
 
 /// Decodes hex encoded string to bytes.
@@ -21,15 +20,14 @@ inline std::string hex(uint8_t b) noexcept
 /// Exceptions:
 /// - std::length_error when the input has invalid length (must be even).
 /// - std::out_of_range when invalid hex digit encountered.
-bytes from_hex(std::string_view hex){
+bytes from_hex(std::string_view hex) {
   if (hex.length() % 2 == 1) {}
 //	throw std::length_error{"the length of the input is odd"};
 
   bytes bs;
   bs.reserve(hex.length() / 2);
   int b = 0;
-  for (size_t i = 0; i < hex.size(); ++i)
-  {
+  for (size_t i = 0; i < hex.size(); ++i) {
 	const auto h = hex[i];
 	int v;
 	if (h >= '0' && h <= '9')
@@ -99,4 +97,16 @@ std::vector<uint8_t> HexToBytes(const std::string &hex) {
 	bytes.push_back(bin);
   }
   return bytes;
+}
+
+std::string int2hex(uint64_t dec_num) {
+  std::string hexdec_num = "";
+  uint64_t r;
+  char hex[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+  while (dec_num > 0) {
+	r = dec_num % 16;
+	hexdec_num = hex[r] + hexdec_num;
+	dec_num = dec_num / 16;
+  }
+  return hexdec_num;
 }

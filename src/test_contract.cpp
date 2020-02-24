@@ -108,22 +108,23 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 	return address;
 }
 
-void test_contract::rawtest() {
+/// pass hex code to execute in evm
+/// auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6); == 30316000526006601af3
+/// "30316000526006601af3"  get balance
+/// "6007600d0160005260206000f3" execute compute return 0x14
+void test_contract::rawtest(hex_code hexcode) {
 	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
 
-  	auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6);
 	msg.gas = 2000;
 	auto vm = evmc::VM{evmc_create_evmone()};
-	// "6007600d0160005260206000f3"
-	// return 0x14
-//	std::vector<uint8_t> code = HexToBytes(hexcode);
+	std::vector<uint8_t> code = HexToBytes(hexcode);
 	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
 	evmc::bytes output;
 	output = {result.output_data, result.output_size};
 
-	//print("res size: ", output.size());
+	print(" \nres is : ");
 	printhex(output.data(), output.size());
 }
 
