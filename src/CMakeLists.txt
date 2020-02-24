@@ -15,10 +15,12 @@ link_libraries(intx)
 add_subdirectory(evmone)
 link_libraries(evmone)
 
-add_contract( test_contract test_contract test_contract.cpp )
+add_contract( test_contract test_contract test_contract.cpp RLP/rlp.cpp)
 target_include_directories( test_contract PUBLIC ${CMAKE_SOURCE_DIR}/../include )
 target_include_directories( test_contract PUBLIC ${CMAKE_SOURCE_DIR}/intx/include/intx)
 target_include_directories( test_contract PUBLIC
         ${CMAKE_SOURCE_DIR}/evmone/lib
         ${CMAKE_SOURCE_DIR}/evmone/include
+        ${CMAKE_SOURCE_DIR}/RLP
+        ${CMAKE_SOURCE_DIR}/RLP/src
         )

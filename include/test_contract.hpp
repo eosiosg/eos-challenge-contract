@@ -4,6 +4,7 @@
 #include <eosio/crypto.hpp>
 #include <evmc/evmc.h>
 #include <bytecode.hpp>
+#include <rlp.hpp>
 using namespace eosio;
 
 typedef eosio::checksum256  eth_addr;
@@ -23,7 +24,9 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void rawtest(hex_code hexcode);
 		[[eosio::action]]
-		void raw(binary_code trx_code, eosio::checksum160 sender);
+		void verifysig(hex_code trx_code);
+		[[eosio::action]]
+		void raw(hex_code trx_code);
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);
 		[[eosio::action]]
@@ -83,6 +86,8 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		std::string rplEncode(std::string val);
 		// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
-
+		evmc_address ecrecover2(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
+		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
+		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
 };
 

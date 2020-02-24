@@ -108,10 +108,51 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<ui
 	return address;
 }
 
+evmc_address test_contract::ecrecover2(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s) {
+  if (version > 1) {
+	return zero_address;
+  }
+
+  std::vector<uint8_t> signature;
+  std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be),
+			std::back_inserter(signature));
+  std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be),
+			std::back_inserter(signature));
+
+  static secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+  secp256k1_ecdsa_recoverable_signature ecsig;
+  if (!secp256k1_ecdsa_recoverable_signature_parse_compact(
+	  ctx, &ecsig, (unsigned char *) &signature[0], version)) {
+	return zero_address;
+  }
+
+  secp256k1_pubkey ecpubkey;
+  if (!secp256k1_ecdsa_recover(ctx, &ecpubkey, &ecsig, hash.bytes)) {
+	return zero_address;
+  }
+  size_t pubkeysize = 65;
+  unsigned char pubkey[65];
+  secp256k1_ec_pubkey_serialize(ctx, pubkey, &pubkeysize, &ecpubkey,
+								SECP256K1_EC_UNCOMPRESSED);
+
+  assert(pubkey[0] == 4);
+  assert(pubkeysize == 65);
+  assert(pubkeysize > 1);
+  // skip the version byte at [0]
+  auto pubkeyhash =
+	  ethash::keccak256((uint8_t *) (pubkey + 1), pubkeysize - 1);
+
+  evmc_address address;
+  std::copy(pubkeyhash.bytes + (sizeof(evmc_uint256be) - sizeof(evmc_address)),
+			pubkeyhash.bytes + sizeof(evmc_uint256be), address.bytes);
+
+  return address;
+}
+
 void test_contract::hexcodegen() {
     	auto const code = bytecode{} + OP_TIMESTAMP + OP_COINBASE + OP_OR + OP_GASPRICE + OP_OR +
                       OP_NUMBER + OP_OR + OP_DIFFICULTY + OP_OR + OP_GASLIMIT + OP_OR + OP_ORIGIN +
-                      OP_OR + OP_CHAINID + OP_OR + ret_top();	
+                      OP_OR + OP_CHAINID + OP_OR + ret_top();
 	printhex(code.data(), code.size());
 }
 
@@ -135,11 +176,249 @@ void test_contract::rawtest(hex_code hexcode) {
 	printhex(output.data(), output.size());
 }
 
-void test_contract::raw(binary_code trx_code, eosio::checksum160 sender) {
+std::vector<uint8_t> test_contract::next_part(RLPParser &parser, const char *label) {
+  assert_b(!parser.at_end(), "Transaction too short");
+  return parser.next();
+}
+
+uint64_t test_contract::uint_from_vector(std::vector<uint8_t> v, const char *label) {
+  assert_b(v.size() <= 8, "uint from vector size too large");
+
+  uint64_t u = 0;
+  for (size_t i = 0; i < v.size(); i++) {
+	u = u << 8;
+	u += v[i];
+  }
+
+  return u;
+}
+
+void test_contract::verifysig(hex_code trx_code) {
+  	std::vector<uint8_t> tx = HexToBytes(trx_code);
+  	RLPParser tx_envelope_p = RLPParser(tx);
+	std::vector<uint8_t> tx_envelope = tx_envelope_p.next();
+	assert_b(!tx_envelope_p.at_end(), "There are more bytes here than one transaction");
+
+	RLPParser tx_parts_p = RLPParser(tx_envelope);
+
+	std::vector<uint8_t> nonce_v = next_part(tx_parts_p, "nonce");
+	std::vector<uint8_t> gasPrice_v = next_part(tx_parts_p, "gas price");
+	std::vector<uint8_t> gas_v = next_part(tx_parts_p, "start gas");
+	std::vector<uint8_t> to = next_part(tx_parts_p, "to address");
+	std::vector<uint8_t> value_v = next_part(tx_parts_p, "value");
+	std::vector<uint8_t> data = next_part(tx_parts_p, "data");
+	std::vector<uint8_t> v = next_part(tx_parts_p, "signature V");
+	std::vector<uint8_t> r_v = next_part(tx_parts_p, "signature R");
+	std::vector<uint8_t> s_v = next_part(tx_parts_p, "signature S");
+
+	uint64_t nonce = uint_from_vector(nonce_v, "nonce");
+	uint64_t gasPrice = uint_from_vector(gasPrice_v, "gas price");
+	uint64_t gas = uint_from_vector(gas_v, "start gas");
+	uint64_t value = uint_from_vector(value_v, "value");
+
+	assert_b(r_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be r;
+	std::copy(r_v.begin(), r_v.end(), r.bytes);
+
+	assert_b(s_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be s;
+	std::copy(s_v.begin(), s_v.end(), s.bytes);
+
+	// Figure out non-signed V
+
+	if (v.size() < 1) {
+	  return;
+	}
+
+	uint64_t chainID = uint_from_vector(v, "chain ID");
+
+	uint8_t actualV;
+	assert_b(chainID >= 37, "Non-EIP-155 signature V value");
+
+	if (chainID % 2) {
+	  actualV = 0;
+	  chainID = (chainID - 35) / 2;
+	} else {
+	  actualV = 1;
+	  chainID = (chainID - 36) / 2;
+	}
+
+	// Re-encode RLP
+
+	RLPBuilder unsignedTX_b;
+	unsignedTX_b.start_list();
+
+	std::vector<uint8_t> empty;
+	unsignedTX_b.add(empty);    // S
+	unsignedTX_b.add(empty);    // R
+	unsignedTX_b.add(chainID);  // V
+	unsignedTX_b.add(data);
+	if (value == 0) {
+	  // signing hash expects 0x80 here, not 0x00
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(value);
+	}
+	unsignedTX_b.add(to);
+	if (gas == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(gas);
+	}
+	if (gasPrice == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(gasPrice);
+	}
+	if (nonce == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(nonce);
+	}
+
+	std::vector<uint8_t> unsignedTX = unsignedTX_b.build();
+
+	// Recover Address
+
+	auto unsignedTX_h = ethash::keccak256(unsignedTX.data(), unsignedTX.size());
+	evmc_uint256be evmc_usignedTX_h;
+	std::copy(&unsignedTX_h.bytes[0], unsignedTX_h.bytes + sizeof(evmc_uint256be),
+			  &evmc_usignedTX_h.bytes[0]);
+	evmc_address from = ecrecover2(evmc_usignedTX_h, actualV, r, s);
+	/// TODO check from address in account table
+	std::array<uint8_t, 32> eth_array;
+	std::copy_n(&from.bytes[0] + 12, 20, eth_array.begin());
+	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
+	tb_account _account(_self, _self.value);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address);
+	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
+}
+
+
+void test_contract::raw(hex_code trx_code) {
   	//TODO what in the trx_code??
   	// 1. which contract?
   	// 2. transaction signature?
   	// 3. trx_code may be set code... and need to update table
+  	std::vector<uint8_t> tx = HexToBytes(trx_code);
+	RLPParser tx_envelope_p = RLPParser(tx);
+	std::vector<uint8_t> tx_envelope = tx_envelope_p.next();
+	assert_b(!tx_envelope_p.at_end(), "There are more bytes here than one transaction");
+
+	RLPParser tx_parts_p = RLPParser(tx_envelope);
+
+	std::vector<uint8_t> nonce_v = next_part(tx_parts_p, "nonce");
+	std::vector<uint8_t> gasPrice_v = next_part(tx_parts_p, "gas price");
+	std::vector<uint8_t> gas_v = next_part(tx_parts_p, "start gas");
+	std::vector<uint8_t> to = next_part(tx_parts_p, "to address");
+	std::vector<uint8_t> value_v = next_part(tx_parts_p, "value");
+	std::vector<uint8_t> data = next_part(tx_parts_p, "data");
+	std::vector<uint8_t> v = next_part(tx_parts_p, "signature V");
+	std::vector<uint8_t> r_v = next_part(tx_parts_p, "signature R");
+	std::vector<uint8_t> s_v = next_part(tx_parts_p, "signature S");
+
+	uint64_t nonce = uint_from_vector(nonce_v, "nonce");
+	uint64_t gasPrice = uint_from_vector(gasPrice_v, "gas price");
+	uint64_t gas = uint_from_vector(gas_v, "start gas");
+	uint64_t value = uint_from_vector(value_v, "value");
+
+	assert_b(r_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be r;
+	std::copy(r_v.begin(), r_v.end(), r.bytes);
+
+	assert_b(s_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be s;
+	std::copy(s_v.begin(), s_v.end(), s.bytes);
+
+	// Figure out non-signed V
+
+	if (v.size() < 1) {
+	  return;
+	}
+
+	uint64_t chainID = uint_from_vector(v, "chain ID");
+
+	uint8_t actualV;
+	assert_b(chainID >= 37, "Non-EIP-155 signature V value");
+
+	if (chainID % 2) {
+	  actualV = 0;
+	  chainID = (chainID - 35) / 2;
+	} else {
+	  actualV = 1;
+	  chainID = (chainID - 36) / 2;
+	}
+
+	// Re-encode RLP
+
+	RLPBuilder unsignedTX_b;
+	unsignedTX_b.start_list();
+
+	std::vector<uint8_t> empty;
+	unsignedTX_b.add(empty);    // S
+	unsignedTX_b.add(empty);    // R
+	unsignedTX_b.add(chainID);  // V
+	unsignedTX_b.add(data);
+	if (value == 0) {
+	  // signing hash expects 0x80 here, not 0x00
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(value);
+	}
+	unsignedTX_b.add(to);
+	if (gas == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(gas);
+	}
+	if (gasPrice == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(gasPrice);
+	}
+	if (nonce == 0) {
+	  unsignedTX_b.add(empty);
+	} else {
+	  unsignedTX_b.add(nonce);
+	}
+
+	std::vector<uint8_t> unsignedTX = unsignedTX_b.build();
+
+	// Recover Address
+	auto unsignedTX_h = ethash::keccak256(unsignedTX.data(), unsignedTX.size());
+	evmc_uint256be evmc_usignedTX_h;
+	std::copy(&unsignedTX_h.bytes[0], unsignedTX_h.bytes + sizeof(evmc_uint256be),
+			  &evmc_usignedTX_h.bytes[0]);
+	evmc_address from = ecrecover2(evmc_usignedTX_h, actualV, r, s);
+	std::array<uint8_t, 32> eth_array;
+	std::copy_n(&from.bytes[0] + 12, 20, eth_array.begin());
+	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
+	tb_account _account(_self, _self.value);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address);
+	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
+
+  	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+  	evmc_revision rev = EVMC_BYZANTIUM;
+  	evmc_message msg{};
+//  	msg.destination = ;
+  	msg.sender = from;
+  	msg.input_data = data.data();
+  	msg.input_size = data.size();
+  	to_evmc_uint256be(value, &msg.value);
+
+	/// get code from table
+	tb_account_code _account_code(_self, _self.value);
+	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
+	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
+
+  	auto vm = evmc::VM{evmc_create_evmone()};
+  	std::vector<uint8_t> code = itr_eth_code->bytecode;
+  	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+  	evmc::bytes output;
+  	output = {result.output_data, result.output_size};
 }
 
 
