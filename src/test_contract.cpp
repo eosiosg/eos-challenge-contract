@@ -7,23 +7,10 @@
 #include <evmc/evmc.hpp>
 #include <eos_mock_host.hpp>
 #include <evmone/evmone.h>
-#include <bytecode.hpp>
 
 const evmc_address zero_address{{0}};
 
 test_contract::test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds){
-}
-
-std::vector<uint8_t> HexToBytes(const std::string &hex) {
-	std::vector<uint8_t> bytes;
-
-	for (unsigned int i = 0; i < hex.length(); i += 2) {
-		std::string byteString = hex.substr(i, 2);
-
-		uint8_t bin = (uint8_t) strtol(byteString.c_str(), NULL, 16);
-		bytes.push_back(bin);
-	}
-	return bytes;
 }
 
 void test_contract::check( ) {

@@ -3,6 +3,7 @@
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
 #include <evmc/evmc.h>
+#include <bytecode.hpp>
 using namespace eosio;
 
 typedef eosio::checksum256  eth_addr;
