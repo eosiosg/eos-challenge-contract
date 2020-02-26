@@ -306,17 +306,21 @@ void test_contract::rawtrxexe(hex_code trx_param, eth_addr eth_address) {
 	auto data = HexToBytes(trx_param);
 	msg.input_data = data.data();
 	msg.input_size = data.size();
-	msg.gas = 20000;
+	/// copy eosio::checksum256 to bytes[20]
+	auto eth_array = eth_address.extract_as_byte_array();
+	std::copy_n(eth_array.begin(), 20, &msg.destination.bytes[0]);
+	msg.gas = 2000000;
 
 	tb_account_code _account_code(_self, _self.value);
 	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
 
-	auto vm = evmc::VM{evmc_create_evmone()};
 	std::vector<uint8_t> code = itr_eth_code->bytecode;
 
-	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+	auto vm = evmc_create_evmone();
+    	evmc_result result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
+
 	print(" \ngas left is : ", result.gas_left);
 	assert_b(result.status_code == EVMC_SUCCESS, "execute failed");
 	evmc::bytes output;

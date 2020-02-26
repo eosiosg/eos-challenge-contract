@@ -169,14 +169,31 @@ class EOSHostContext : public Host {
   /// Get the account's storage value at the given key (EVMC Host method).
   bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
 	record_account_access(addr);
+        /// copy address to _addr(eosio::checksum256)
+        std::array<uint8_t, 32> eth_array;
+        eth_array.fill({});
+        std::copy_n(&addr.bytes[0], 20, eth_array.begin());
+        eosio::checksum256 _addr = eosio::fixed_bytes<32>(eth_array);
+	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(_addr);
+	if (itr_eth_addr == by_eth_account_index.end()) return {};
 
-	const auto account_iter = accounts.find(addr);
-	if (account_iter == accounts.end())
-	  return {};
+	test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+	/// key to checksum256
+	  std::array<uint8_t, 32> key_array;
+	  std::copy(&key.bytes[0], &key.bytes[0] + 32, key_array.begin());
+	  eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
 
-	const auto storage_iter = account_iter->second.storage.find(key);
-	if (storage_iter != account_iter->second.storage.end())
-	  return storage_iter->second.value;
+	auto itr_eth_addr_store = by_eth_account_storage_index.find(key_eosio);
+	if (itr_eth_addr_store != by_eth_account_storage_index.end()) {
+		bytes32 value{};
+		auto storage_value = itr_eth_addr_store->storage_val;
+		auto storage_value_array = storage_value.extract_as_byte_array();
+		std::copy(storage_value_array.begin(), storage_value_array.end(), &value.bytes[0]);
+		return value;
+	}
 	return {};
   }
 
@@ -185,32 +202,79 @@ class EOSHostContext : public Host {
 								  const bytes32 &key,
 								  const bytes32 &value) noexcept override {
 	record_account_access(addr);
-	const auto it = accounts.find(addr);
-	if (it == accounts.end())
-	  return EVMC_STORAGE_UNCHANGED;
+	/// copy address to _addr(eosio::checksum256)
+	std::array<uint8_t, 32> eth_array;
+	eth_array.fill({});
+	std::copy_n(&addr.bytes[0], 20, eth_array.begin());
+	eosio::checksum256 _addr = eosio::fixed_bytes<32>(eth_array);
+	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
-	auto old = it->second.storage[key];
+	auto itr_eth_addr = by_eth_account_index.find(_addr);
+	if (itr_eth_addr == by_eth_account_index.end())
+		return EVMC_STORAGE_UNCHANGED;
+	eosio::print("\n set2");
 
-	// Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
-	// WARNING! This is not complete implementation as refund is not handled here.
+	  test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+	  /// key to checksum256
+	  std::array<uint8_t, 32> key_array;
+	  std::copy(&key.bytes[0], &key.bytes[0] + 32, key_array.begin());
+	  eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
+	  auto itr_eth_addr_store = by_eth_account_storage_index.find(key_eosio);
+	  /// value to checksum256
+	  std::array<uint8_t, 32> new_value_array;
+	  std::copy(&value.bytes[0], &value.bytes[0] + 32, new_value_array.begin());
+	  eosio::checksum256 new_value_eosio = eosio::fixed_bytes<32>(new_value_array);
 
-	if (old.value == value)
-	  return EVMC_STORAGE_UNCHANGED;
+	  evmc_storage_status status{};
+	  if (itr_eth_addr_store == by_eth_account_storage_index.end()) {
+	  	_account_store.emplace(itr_eth_addr->eosio_account, [&](auto &the_store){
+			the_store.id = _account_store.available_primary_key();
+			the_store.storage_key = key_eosio;
+	  		the_store.storage_val = new_value_eosio;
+	  	});
+	  	status = EVMC_STORAGE_ADDED;
+	  	return  status;
+	  } else {
+		  auto old_value = itr_eth_addr_store->storage_val;
+		  if (old_value == new_value_eosio) {
+			  status = EVMC_STORAGE_UNCHANGED;
+			  return status;
+		  }
+		  _account_store.modify(*itr_eth_addr_store, itr_eth_addr->eosio_account, [&](auto &the_store){
+			  the_store.storage_val = new_value_eosio;
+		  });
+		  status = EVMC_STORAGE_MODIFIED;
+		  return status;
+	  }
 
-	evmc_storage_status status{};
-	if (!old.dirty) {
-	  old.dirty = true;
-	  if (!old.value)
-		status = EVMC_STORAGE_ADDED;
-	  else if (value)
-		status = EVMC_STORAGE_MODIFIED;
-	  else
-		status = EVMC_STORAGE_DELETED;
-	} else
-	  status = EVMC_STORAGE_MODIFIED_AGAIN;
-
-	old.value = value;
-	return status;
+//	const auto it = accounts.find(addr);
+//	if (it == accounts.end())
+//	  return EVMC_STORAGE_UNCHANGED;
+//
+//	auto old = it->second.storage[key];
+//
+//	// Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
+//	// WARNING! This is not complete implementation as refund is not handled here.
+//
+//	if (old.value == value)
+//	  return EVMC_STORAGE_UNCHANGED;
+//
+//	evmc_storage_status status{};
+//	if (!old.dirty) {
+//	  old.dirty = true;
+//	  if (!old.value)
+//		status = EVMC_STORAGE_ADDED;
+//	  else if (value)
+//		status = EVMC_STORAGE_MODIFIED;
+//	  else
+//		status = EVMC_STORAGE_DELETED;
+//	} else
+//	  status = EVMC_STORAGE_MODIFIED_AGAIN;
+//
+//	old.value = value;
+//	return status;
   }
 
   /// Get the account's balance (EVMC Host method).
@@ -349,4 +413,5 @@ class EOSHostContext : public Host {
   }
 };
 }  // namespace evmc
+
 

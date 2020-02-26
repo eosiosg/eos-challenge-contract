@@ -68,6 +68,19 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 
 		typedef eosio::multi_index<"accountstate"_n, st_account_state> tb_account_state;
 
+		struct [[eosio::table("test_contract")]] st_account_storage {
+			uint64_t             id;
+			eosio::checksum256   storage_key;
+			eosio::checksum256   storage_val;
+
+			uint64_t primary_key() const { return id; };
+			eosio::checksum256 by_storage_key() const { return storage_key; };
+		};
+
+		typedef eosio::multi_index<"accountstore"_n, st_account_storage,
+			indexed_by<"bystorekey"_n, const_mem_fun<st_account_storage, eosio::checksum256, &st_account_storage::by_storage_key>>
+		> tb_account_storage;
+
 		struct [[eosio::table("test_contract")]] st_account_code {
 		  	uint64_t id;
 			eth_addr eth_address;
@@ -92,4 +105,5 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
 		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
 };
+
 
