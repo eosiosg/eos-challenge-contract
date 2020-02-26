@@ -26,6 +26,8 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void verifysig(hex_code trx_code);
 		[[eosio::action]]
+		void rawtrxexe(hex_code trx_param, eth_addr eth_address);
+		[[eosio::action]]
 		void raw(hex_code trx_code);
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);

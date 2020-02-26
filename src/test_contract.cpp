@@ -295,6 +295,35 @@ void test_contract::verifysig(hex_code trx_code) {
 	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
 }
 
+/// eg: trx: e42a722b00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000008
+///     eth_address: contract address
+///     smart contract code: 6080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063e42a722b14604e578063ef5fb05b1460a2575b600080fd5b348015605957600080fd5b506086600480360381019080803560030b9060200190929190803560030b906020019092919050505060d0565b604051808260030b60030b815260200191505060405180910390f35b34801560ad57600080fd5b5060b460dd565b604051808260030b60030b815260200191505060405180910390f35b6000818301905092915050565b600060149050905600a165627a7a72305820556e7725ce14e3dfb830dceeb656d8cfafb2e1391d84f4a9daaaa057435c69cd0029
+void test_contract::rawtrxexe(hex_code trx_param, eth_addr eth_address) {
+	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc_revision rev = EVMC_BYZANTIUM;
+	evmc_message msg{};
+	msg.kind = EVMC_CALL;
+	auto data = HexToBytes(trx_param);
+	msg.input_data = data.data();
+	msg.input_size = data.size();
+	msg.gas = 20000;
+
+	tb_account_code _account_code(_self, _self.value);
+	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
+	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
+
+	auto vm = evmc::VM{evmc_create_evmone()};
+	std::vector<uint8_t> code = itr_eth_code->bytecode;
+
+	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+	print(" \ngas left is : ", result.gas_left);
+	assert_b(result.status_code == EVMC_SUCCESS, "execute failed");
+	evmc::bytes output;
+	output = {result.output_data, result.output_size};
+	print(" \nres is : ");
+	printhex(output.data(), output.size());
+}
 
 void test_contract::raw(hex_code trx_code) {
   	//TODO what in the trx_code??
@@ -402,11 +431,12 @@ void test_contract::raw(hex_code trx_code) {
   	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
   	evmc_revision rev = EVMC_BYZANTIUM;
   	evmc_message msg{};
-//  	msg.destination = ;
+	std::copy(to.begin(), to.end(), &msg.destination.bytes[0]);;
   	msg.sender = from;
   	msg.input_data = data.data();
   	msg.input_size = data.size();
   	to_evmc_uint256be(value, &msg.value);
+  	/// TODO if value > 0 need to transfer ETH
 
 	/// get code from table
 	tb_account_code _account_code(_self, _self.value);
@@ -419,6 +449,8 @@ void test_contract::raw(hex_code trx_code) {
   	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
   	evmc::bytes output;
   	output = {result.output_data, result.output_size};
+	print(" \nres is : ");
+	printhex(output.data(), output.size());
 }
 
 
