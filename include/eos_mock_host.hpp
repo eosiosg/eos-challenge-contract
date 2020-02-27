@@ -202,19 +202,23 @@ class EOSHostContext : public Host {
 
   /// Get the account's balance (EVMC Host method).
   uint256be get_balance(const address &addr) const noexcept override {
-	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
-	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
-	auto itr_eth_addr = by_eth_account_index.find(_addr);
+	  eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 
-	asset eos_balance = itr_eth_addr->eosio_balance;
-	uint64_t eos_value = eos_balance.amount;
-	uint256be balance;
-	std::string balance_str = int2hex(eos_value);
-	auto hex_balance = HexToBytes(balance_str);
-	std::copy(hex_balance.begin(), hex_balance.end(), &balance.bytes[20]);
-	/// convert contract_balance to bytes32
-	return balance;
+	  test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	  auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
+
+	  auto itr_eth_addr = by_eth_account_index.find(_addr);
+	  test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+
+	  /// TODO need to test
+	  auto itr_eth_addr_store = by_eth_account_storage_index.find(_addr);
+	  auto _balance = itr_eth_addr_store->storage_val;
+	  /// copy eosio::checksum256 balance to uint256be
+	  uint256be balance;
+	  auto store_value_array = _balance.extract_as_byte_array();
+	  std::copy(store_value_array.begin(), store_value_array.end(), &balance.bytes[0]);
+	  return balance;
   }
 
   /// Get the account's code size (EVMC host method).
