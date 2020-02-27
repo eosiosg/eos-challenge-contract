@@ -151,6 +151,7 @@ class EOSHostContext : public Host {
   eosio::checksum256 byte_array_addr_to_eth_addr(const address &addr) const {
     auto addr_bytes = addr.bytes;
     std::array<uint8_t, 32> eth_array;
+    eth_array.fill({});
     std::copy_n(&addr_bytes[0], 20, eth_array.begin());
     eth_addr _addr = eosio::fixed_bytes<32>(eth_array);
     return _addr;
@@ -169,11 +170,7 @@ class EOSHostContext : public Host {
   /// Get the account's storage value at the given key (EVMC Host method).
   bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
 	record_account_access(addr);
-        /// copy address to _addr(eosio::checksum256)
-        std::array<uint8_t, 32> eth_array;
-        eth_array.fill({});
-        std::copy_n(&addr.bytes[0], 20, eth_array.begin());
-        eosio::checksum256 _addr = eosio::fixed_bytes<32>(eth_array);
+    eth_addr _addr = byte_array_addr_to_eth_addr(addr);
 	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -203,10 +200,8 @@ class EOSHostContext : public Host {
 								  const bytes32 &value) noexcept override {
 	record_account_access(addr);
 	/// copy address to _addr(eosio::checksum256)
-	std::array<uint8_t, 32> eth_array;
-	eth_array.fill({});
-	std::copy_n(&addr.bytes[0], 20, eth_array.begin());
-	eosio::checksum256 _addr = eosio::fixed_bytes<32>(eth_array);
+	eth_addr _addr = byte_array_addr_to_eth_addr(addr);
+
 	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
@@ -248,33 +243,6 @@ class EOSHostContext : public Host {
 		  status = EVMC_STORAGE_MODIFIED;
 		  return status;
 	  }
-
-//	const auto it = accounts.find(addr);
-//	if (it == accounts.end())
-//	  return EVMC_STORAGE_UNCHANGED;
-//
-//	auto old = it->second.storage[key];
-//
-//	// Follow https://eips.ethereum.org/EIPS/eip-1283 specification.
-//	// WARNING! This is not complete implementation as refund is not handled here.
-//
-//	if (old.value == value)
-//	  return EVMC_STORAGE_UNCHANGED;
-//
-//	evmc_storage_status status{};
-//	if (!old.dirty) {
-//	  old.dirty = true;
-//	  if (!old.value)
-//		status = EVMC_STORAGE_ADDED;
-//	  else if (value)
-//		status = EVMC_STORAGE_MODIFIED;
-//	  else
-//		status = EVMC_STORAGE_DELETED;
-//	} else
-//	  status = EVMC_STORAGE_MODIFIED_AGAIN;
-//
-//	old.value = value;
-//	return status;
   }
 
   /// Get the account's balance (EVMC Host method).
