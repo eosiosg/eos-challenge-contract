@@ -1,4 +1,3 @@
-// EVMC: Ethereum Client-VM Connector API.
 // Copyright 2019 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 #pragma once
@@ -19,47 +18,6 @@ namespace evmc {
 using bytes = std::basic_string<uint8_t>;
 typedef eosio::checksum256 eosio_addr;
 typedef eosio::checksum256 eth_addr;
-
-/// Extended value (by dirty flag) for account storage.
-struct storage_value {
-  /// The storage value.
-  bytes32 value;
-
-  /// True means this value has been modified already by the current transaction.
-  bool dirty{false};
-
-  /// Default constructor.
-  storage_value() noexcept = default;
-
-  /// Constructor.
-  storage_value(const bytes32 &_value, bool _dirty = false) noexcept  // NOLINT
-	  : value{_value}, dirty{_dirty} {}
-};
-
-/// Mocked account.
-struct MockedAccount {
-  /// The account nonce.
-  int nonce = 0;
-
-  /// The account code.
-  bytes code;
-
-  /// The code hash. Can be a value not related to the actual code.
-  bytes32 codehash;
-
-  /// The account balance.
-  uint256be balance;
-
-  /// The account storage map.
-  std::map<bytes32, storage_value> storage;
-
-  /// Helper method for setting balance by numeric type.
-  void set_balance(uint64_t x) noexcept {
-	balance = uint256be{};
-	for (std::size_t i = 0; i < sizeof(x); ++i)
-	  balance.bytes[sizeof(balance) - 1 - i] = static_cast<uint8_t>(x >> (8 * i));
-  }
-};
 
 /// Mocked EVMC Host implementation.
 class EOSHostContext : public Host {
@@ -98,9 +56,6 @@ class EOSHostContext : public Host {
   /// contract
   EOSHostContext(std::shared_ptr<eosio::contract> contract_ptr) : _contract(contract_ptr) {};
   std::shared_ptr<eosio::contract> _contract;
-
-  /// The set of all accounts in the Host, organized by their addresses.
-  std::unordered_map<address, MockedAccount> accounts;
 
   /// The EVMC transaction context to be returned by get_tx_context().
   evmc_tx_context tx_context = {};
@@ -152,7 +107,7 @@ class EOSHostContext : public Host {
     auto addr_bytes = addr.bytes;
     std::array<uint8_t, 32> eth_array;
     eth_array.fill({});
-    std::copy_n(&addr_bytes[0], 20, eth_array.begin());
+    std::copy_n(&addr_bytes[0], 20, eth_array.begin() + 12);
     eth_addr _addr = eosio::fixed_bytes<32>(eth_array);
     return _addr;
   }
@@ -208,7 +163,7 @@ class EOSHostContext : public Host {
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 	if (itr_eth_addr == by_eth_account_index.end())
 		return EVMC_STORAGE_UNCHANGED;
-	eosio::print("\n set2");
+	eosio::print("\n setting storage...");
 
 	  test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
 	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();

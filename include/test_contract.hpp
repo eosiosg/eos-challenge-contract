@@ -32,6 +32,8 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);
 		[[eosio::action]]
+		void updateeth(eth_addr eth_address, name eos_account);
+		[[eosio::action]]
 		void transfers(name from, asset amount);
 		[[eosio::action]]
 		void withdraw(name eos_account, asset amount);
