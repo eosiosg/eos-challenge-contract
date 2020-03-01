@@ -10,7 +10,8 @@
 
 const evmc_address zero_address{{0}};
 
-test_contract::test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds){
+test_contract::test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds) ,
+_account(_self, _self.value), _account_storage(_self, _self.value), _account_code(_self, _self.value){
 }
 
 void test_contract::check( ) {
@@ -72,32 +73,35 @@ void test_contract::assert_b(bool test, const char *msg) {
 	eosio::internal_use_do_not_use::eosio_assert(static_cast<uint32_t>(test), msg);
 }
 
-evmc_address test_contract::ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature) {
-	uint8_t version = 0;
+evmc_address test_contract::ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s) {
 	if (version > 1) {
 		return zero_address;
 	}
 
-	static secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-	secp256k1_ecdsa_recoverable_signature ecsig;
-	if (!secp256k1_ecdsa_recoverable_signature_parse_compact(
-				ctx, &ecsig, (unsigned char *) &signature[0], version)) {
-		return zero_address;
-	}
+	std::array<uint8_t, 65> sig;
+	sig.fill({});
+	sig[0] = version;
+	std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be), sig.data()+1);
+	std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be), sig.data()+33);
 
-	secp256k1_pubkey ecpubkey;
-	if (!secp256k1_ecdsa_recover(ctx, &ecpubkey, &ecsig, hash.bytes)) {
-		return zero_address;
-	}
+	std::array<char, 65> ecc_sig;
+	std::memcpy(sig.data(), &ecc_sig, sizeof(sig));
+	eosio::signature eosio_signature = eosio::signature{std::in_place_index<0>, ecc_sig};
+
+	std::array<uint8_t, 32> message_hash_arr;
+	std::copy(&hash.bytes[0], &hash.bytes[0] + 32, message_hash_arr.begin());
+	eosio::checksum256 message_hash = eosio::fixed_bytes<32>(message_hash_arr);;
+
+	eosio::public_key pubkey_compress = eosio::recover_key(message_hash, eosio_signature);
+	auto r1_pubkey = std::get<0>(pubkey_compress);
+
+	std::vector<uint8_t> _compressed_key( std::begin(r1_pubkey), std::end(r1_pubkey) );
+
 	size_t pubkeysize = 65;
 	unsigned char pubkey[65];
-	secp256k1_ec_pubkey_serialize(ctx, pubkey, &pubkeysize, &ecpubkey,
-			SECP256K1_EC_UNCOMPRESSED);
+	pubkey[0] = 4;
+	uECC_decompress(_compressed_key.data(), pubkey + 1, uECC_secp256k1());
 
-	assert(pubkey[0] == 4);
-	assert(pubkeysize == 65);
-	assert(pubkeysize > 1);
-	// skip the version byte at [0]
 	auto pubkeyhash =
 		ethash::keccak256((uint8_t *) (pubkey + 1), pubkeysize - 1);
 
@@ -119,7 +123,7 @@ evmc_address test_contract::ecrecover2(const evmc_uint256be &hash, const uint8_t
   std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be),
 			std::back_inserter(signature));
 
-  static secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+  secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
   secp256k1_ecdsa_recoverable_signature ecsig;
   if (!secp256k1_ecdsa_recoverable_signature_parse_compact(
 	  ctx, &ecsig, (unsigned char *) &signature[0], version)) {
@@ -134,6 +138,9 @@ evmc_address test_contract::ecrecover2(const evmc_uint256be &hash, const uint8_t
   unsigned char pubkey[65];
   secp256k1_ec_pubkey_serialize(ctx, pubkey, &pubkeysize, &ecpubkey,
 								SECP256K1_EC_UNCOMPRESSED);
+
+  secp256k1_context_destroy(ctx);
+  ctx = nullptr;
 
   assert(pubkey[0] == 4);
   assert(pubkeysize == 65);
@@ -290,7 +297,7 @@ void test_contract::verifysig(hex_code trx_code) {
 	eth_array.fill({});
 	std::copy_n(&from.bytes[0], 20, eth_array.begin()+12);
 	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
-	tb_account _account(_self, _self.value);
+//	tb_account _account(_self, _self.value);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(eth_address);
 	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
@@ -312,7 +319,7 @@ void test_contract::rawtrxexe(hex_code trx_param, eth_addr eth_address) {
 	std::copy_n(eth_array.begin()+12, 20, &msg.destination.bytes[0]);
 	msg.gas = 2000000;
 
-	tb_account_code _account_code(_self, _self.value);
+//	tb_account_code _account_code(_self, _self.value);
 	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
@@ -429,42 +436,42 @@ void test_contract::raw(hex_code trx_code) {
 	eth_array.fill({});
 	std::copy_n(&from.bytes[0], 20, eth_array.begin()+12);
 	eth_addr eth_address = eosio::fixed_bytes<32>(eth_array);
-	tb_account _account(_self, _self.value);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(eth_address);
 	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
 	print("\n valid sig");
 
-        evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-        evmc_revision rev = EVMC_BYZANTIUM;
-        evmc_message msg{};
-        std::copy(to.begin(), to.end(), &msg.destination.bytes[0]);;
-        msg.sender = from;
-        msg.input_data = data.data();
-        msg.input_size = data.size();
-        to_evmc_uint256be(value, &msg.value);
-        /// TODO if value > 0 need to transfer ETH
-        
-        /// get code from table
-        tb_account_code _account_code(_self, _self.value);
-        auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
-        auto itr_eth_code = by_eth_account_code_index.find(eth_address);
-        assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
-        
-        auto vm = evmc::VM{evmc_create_evmone()};
-        std::vector<uint8_t> code = itr_eth_code->bytecode;
-        evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
-        evmc::bytes output;
-        output = {result.output_data, result.output_size};
-        print(" \nres is : ");
-        printhex(output.data(), output.size());
+//	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc::MockedHost host;
+//	evmc_revision rev = EVMC_BYZANTIUM;
+//	evmc_message msg{};
+//	std::copy(to.begin(), to.end(), &msg.destination.bytes[0]);;
+//	msg.sender = from;
+//	msg.input_data = data.data();
+//	msg.input_size = data.size();
+//	to_evmc_uint256be(value, &msg.value);
+//	/// TODO if value > 0 need to transfer ETH
+//
+//	/// get code from table
+//	tb_account_code _account_code(_self, _self.value);
+//	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+//	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
+//	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
+//
+//	auto vm = evmc::VM{evmc_create_evmone()};
+//	std::vector<uint8_t> code = itr_eth_code->bytecode;
+//	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+//	evmc::bytes output;
+//	output = {result.output_data, result.output_size};
+//	print(" \nres is : ");
+//	printhex(output.data(), output.size());
 }
 
 
 void test_contract::create(name eos_account, std::string salt) {
   	require_auth(eos_account);
   	// check eosio account exist
-  	tb_account _account(_self, _self.value);
+//  	tb_account _account(_self, _self.value);
   	auto by_eos_account_index = _account.get_index<name("byeos")>();
   	auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
   	assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
@@ -520,7 +527,7 @@ void test_contract::create(name eos_account, std::string salt) {
 ///(9) 0x70458e863ddd01cbc5cb6891d399836a17f8d78a06ec6b4c12fae71352848344
 
 void test_contract::updateeth(eth_addr eth_address, name eos_account) {
-        tb_account _account(_self, _self.value);
+//        tb_account _account(_self, _self.value);
         auto by_eos_account_index = _account.get_index<name("byeos")>();
         auto itr_eos_addr = by_eos_account_index.find(eos_account.value);	
 
@@ -531,7 +538,7 @@ void test_contract::updateeth(eth_addr eth_address, name eos_account) {
 
 void test_contract::transfers(name from, asset amount) {
 	require_auth(from);
-	tb_account _account(_self, _self.value);
+//	tb_account _account(_self, _self.value);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_from = by_eos_account_index.find(from.value);
 	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
@@ -550,7 +557,7 @@ void test_contract::transfers(name from, asset amount) {
 
 void test_contract::withdraw(name eos_account, asset amount) {
 	require_auth(eos_account);
-	tb_account _account(_self, _self.value);
+//	tb_account _account(_self, _self.value);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
 	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
@@ -569,7 +576,7 @@ void test_contract::withdraw(name eos_account, asset amount) {
 
 void test_contract::setcode(eth_addr eth_address, hex_code evm_code) {
   	// find eos account to check auth
-  	tb_account _account(_self, _self.value);
+//  	tb_account _account(_self, _self.value);
   	auto by_eth_account_index = _account.get_index<name("byeth")>();
   	auto itr_eth_addr = by_eth_account_index.find(eth_address);
   	assert_b(itr_eth_addr != by_eth_account_index.end(), "no such eth account");
@@ -578,7 +585,7 @@ void test_contract::setcode(eth_addr eth_address, hex_code evm_code) {
   	require_auth(eos_account);
 
   	// set code and use eos_account ram
-    tb_account_code _account_code(_self, _self.value);
+//    tb_account_code _account_code(_self, _self.value);
     auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
     auto itr_eth_code = by_eth_account_code_index.find(eth_address);
     if (itr_eth_code == by_eth_account_code_index.end()) {

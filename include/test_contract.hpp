@@ -5,6 +5,8 @@
 #include <evmc/evmc.h>
 #include <bytecode.hpp>
 #include <rlp.hpp>
+#include <ecc/uECC.h>
+#include <evmc/mocked_host.hpp>
 using namespace eosio;
 
 typedef eosio::checksum256  eth_addr;
@@ -95,6 +97,10 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		typedef eosio::multi_index<"accountcode"_n, st_account_code,
 			indexed_by<"byeth"_n, const_mem_fun<st_account_code, eosio::checksum256, &st_account_code::by_eth>>
 			> tb_account_code;
+
+		tb_account _account;
+		tb_account_storage _account_storage;
+		tb_account_code _account_code;
  	private:
 		void assert_b(bool test, const char *msg);
 		// RLP encoding related
@@ -102,7 +108,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		std::string encodeLength(size_t n, unsigned char offset);
 		std::string rplEncode(std::string val);
 		// address recover
-		evmc_address ecrecover(const evmc_uint256be &hash, std::vector<uint8_t> &signature);
+		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		evmc_address ecrecover2(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
 		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
