@@ -134,9 +134,9 @@ class EOSHostContext : public Host {
 	test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
 	auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 	/// key to checksum256
-	  std::array<uint8_t, 32> key_array;
-	  std::copy(&key.bytes[0], &key.bytes[0] + 32, key_array.begin());
-	  eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
+	std::array<uint8_t, 32> key_array;
+	std::copy_n(&key.bytes[0], 32, key_array.begin());
+	eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
 
 	auto itr_eth_addr_store = by_eth_account_storage_index.find(key_eosio);
 	if (itr_eth_addr_store != by_eth_account_storage_index.end()) {
