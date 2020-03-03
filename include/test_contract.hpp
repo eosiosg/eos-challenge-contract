@@ -19,18 +19,16 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 
 		explicit test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
 
-//		[[eosio::action]]
-//		void check();
 		[[eosio::action]]
 		void hexcodegen();
 		[[eosio::action]]
 		void rawtest(hex_code hexcode);
-//		[[eosio::action]]
-//		void verifysig(hex_code trx_code);
+		[[eosio::action]]
+		void verifysig(hex_code trx_code);
 		[[eosio::action]]
 		void rawtrxexe(hex_code trx_param, eth_addr eth_address, eth_addr sender);
-//		[[eosio::action]]
-//		void raw(hex_code trx_code);
+		[[eosio::action]]
+		void raw(hex_code trx_code);
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);
 		[[eosio::action]]
@@ -112,12 +110,8 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
  	private:
 		void assert_b(bool test, const char *msg);
 		uint64_t get_nonce();
-		// RLP encoding related
-		std::string encodeBinary(uint64_t n);
-		std::string encodeLength(size_t n, unsigned char offset);
-		std::string rplEncode(std::string val);
 		// address recover
-//		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
+		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 //		evmc_address ecrecover2(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
 		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
