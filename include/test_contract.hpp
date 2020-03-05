@@ -3,15 +3,14 @@
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
 #include <evmc/evmc.h>
-#include <bytecode.hpp>
+#include <evmc/evmc.hpp>
 #include <rlp.hpp>
 #include <ecc/uECC.h>
 #include <evmc/mocked_host.hpp>
-using namespace eosio;
+#include <optional>
+#include <utils.hpp>
 
-typedef eosio::checksum256  eth_addr;
-typedef std::vector<uint8_t> binary_code;
-typedef std::string          hex_code;
+using namespace eosio;
 
 class [[eosio::contract("test_contract")]] test_contract : public contract {
 	public:
@@ -20,15 +19,13 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		explicit test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
 
 		[[eosio::action]]
-		void hexcodegen();
-		[[eosio::action]]
 		void rawtest(hex_code hexcode);
 		[[eosio::action]]
 		void verifysig(hex_code trx_code);
 		[[eosio::action]]
 		void rawtrxexe(hex_code trx_param, eth_addr eth_address, eth_addr sender);
 		[[eosio::action]]
-		void raw(hex_code trx_code);
+		void raw(const hex_code &trx_code, const std::optional<eth_addr> &sender);
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);
 		[[eosio::action]]
@@ -40,9 +37,21 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void setcode(eth_addr eth_address, hex_code evm_code);
 
-//		using check_action = action_wrapper<"check"_n, &test_contract::check>;
-
 	public:
+		struct rlp_decode_trx {
+			std::vector<uint8_t> nonce_v;
+			std::vector<uint8_t> gasPrice_v;
+			std::vector<uint8_t> gas_v;
+			std::vector<uint8_t> to;
+			std::vector<uint8_t> value;
+			std::vector<uint8_t> data;
+			std::vector<uint8_t> v;
+			std::vector<uint8_t> r_v;
+			std::vector<uint8_t> s_v;
+
+			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
+		};
+
 		struct [[eosio::table("test_contract")]] st_account {
 			uint64_t           id;
 			eth_addr           eth_address;
@@ -110,11 +119,19 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
  	private:
 		void assert_b(bool test, const char *msg);
 		uint64_t get_nonce();
-		// address recover
+		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
-//		evmc_address ecrecover2(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
+		/// RLP
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
 		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
-};
+		rlp_decode_trx RLPDecodeTrx(const hex_code &trx_code);
+		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
+		/// keccak hash
+		evmc_uint256be gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx);
+		/// get code
+		std::vector<uint8_t> get_eth_code(eth_addr eth_address);
+		/// vm execute
+		evmc_result vm_execute(std::vector<uint8_t> &code, test_contract::rlp_decode_trx &trx, evmc_address &sender);
+	};
 
 
