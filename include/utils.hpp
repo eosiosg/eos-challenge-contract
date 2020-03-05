@@ -8,7 +8,8 @@
 
 using bytes = std::basic_string<uint8_t>;
 using bytes_view = std::basic_string_view<uint8_t>;
-typedef eosio::checksum256  eth_addr;
+typedef eosio::checksum160   eth_addr_160;
+typedef eosio::checksum256   eth_addr_256;
 typedef std::vector<uint8_t> binary_code;
 typedef std::string          hex_code;
 
@@ -67,7 +68,7 @@ eosio::checksum256 evmc_uint256_to_checksum256(evmc_uint256be value) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
 	std::copy_n(&value.bytes[0], sizeof(evmc_uint256be), eth_address_arr.begin());
-	eth_addr eth_address = eosio::fixed_bytes<32>(eth_address_arr);
+	eth_addr_256 eth_address = eosio::fixed_bytes<32>(eth_address_arr);
 	return eth_address;
 }
 
@@ -75,7 +76,7 @@ eosio::checksum256 evmc_address_to_checksum256(evmc_address address) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
 	std::copy_n(&address.bytes[0], sizeof(evmc_address), eth_address_arr.begin()+PADDING);
-	eth_addr eth_address = eosio::fixed_bytes<32>(eth_address_arr);
+	eth_addr_256 eth_address = eosio::fixed_bytes<32>(eth_address_arr);
 	return eth_address;
 }
 
@@ -84,6 +85,15 @@ eosio::checksum256 vector_to_checksum256(std::vector<uint8_t> &address) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
 	std::copy(address.begin(), address.end(), eth_address_arr.begin()+PADDING);
-	eth_addr eth_address = eosio::fixed_bytes<32>(eth_address_arr);
+	eth_addr_256 eth_address = eosio::fixed_bytes<32>(eth_address_arr);
 	return eth_address;
+}
+
+eth_addr_256 eth_addr_160_to_eth_addr_256(const eth_addr_160 &eth_address_160) {
+	auto eth_arr_160 = eth_address_160.extract_as_byte_array();
+	std::array<uint8_t, 32> eth_arr_256;
+	eth_arr_256.fill({});
+	std::copy(eth_arr_160.begin(), eth_arr_160.end(), eth_arr_256.begin() + PADDING);
+	auto eth_address_256 = eosio::fixed_bytes<32>(eth_arr_256);
+	return eth_address_256;
 }
