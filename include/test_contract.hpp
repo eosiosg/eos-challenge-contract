@@ -9,6 +9,7 @@
 #include <evmc/mocked_host.hpp>
 #include <optional>
 #include <utils.hpp>
+#include <evmc_status_code.hpp>
 
 using namespace eosio;
 
@@ -132,6 +133,8 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
 		/// vm execute
 		evmc_result vm_execute(std::vector<uint8_t> &code, test_contract::rlp_decode_trx &trx, evmc_address &sender);
+		/// print receipt
+		void print_vm_receipt(evmc_result result, test_contract::rlp_decode_trx &trx, evmc_address &sender);
 	};
 
 

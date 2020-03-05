@@ -71,11 +71,23 @@ void test_contract::raw(const hex_code &trx_code, const std::optional<eth_addr_1
 	auto eth_dest = vector_to_checksum256(trx.to);
 	auto code = get_eth_code(eth_dest);
 
-	/// execute code
-	evmc_address sender_;
-	auto evm_result = vm_execute(code, trx, sender_);
+	evmc_address evmc_sender;
+	if (!trx.is_r_s_zero()) {
+		evmc_sender = from;
+	} else {
+		assert_b(sender->size() != 0, "sender param can not be none"); /// sender exist;
+		auto by_eth_account_index = _account.get_index<name("byeth")>();
+		eosio::checksum256 sender_checksum_256 = evmc_address_to_checksum256(evmc_sender);
+		auto itr_eth_addr = by_eth_account_index.find(sender_checksum_256);
+		assert_b(itr_eth_addr != by_eth_account_index.end(), "sender not exist");
 
-	/// TODO parse result
+		evmc_sender = checksum160_to_evmc_address(*sender);
+	}
+	/// execute code
+	auto evm_result = vm_execute(code, trx, evmc_sender);
+
+	/// print result
+	print_vm_receipt(evm_result, trx, evmc_sender);
 }
 
 void test_contract::updateeth(eth_addr_160 eth_address, name eos_account) {
@@ -183,8 +195,6 @@ evmc_address test_contract::ecrecover(const evmc_uint256be &hash, const uint8_t 
 	evmc_address address;
 	std::copy(pubkeyhash.bytes + (sizeof(evmc_uint256be) - sizeof(evmc_address)),
 	          pubkeyhash.bytes + sizeof(evmc_uint256be), address.bytes);
-	print(" \n ecrecover address is: ");
-	printhex(&address.bytes[0], sizeof(address.bytes));
 	return address;
 }
 
@@ -373,15 +383,7 @@ evmc_result test_contract::vm_execute(std::vector<uint8_t> &code, test_contract:
 	evmc_message msg{};
 	msg.kind = EVMC_CALL;
 	std::copy(trx.to.begin(), trx.to.end(), &msg.destination.bytes[0]);;
-	if (trx.is_r_s_zero()) {
-		assert_b(!is_zero((evmc::address)sender), "sender param can not be none"); /// sender exist;
-		auto by_eth_account_index = _account.get_index<name("byeth")>();
-		eosio::checksum256 sender_checksum = evmc_address_to_checksum256(sender);
-		auto itr_eth_addr = by_eth_account_index.find(sender_checksum);
-		assert_b(itr_eth_addr != by_eth_account_index.end(), "sender not exist");
-	} else {
-		std::copy_n(&sender.bytes[0], ADDRSIZE, &msg.sender.bytes[0]);
-	}
+	std::copy_n(&sender.bytes[0], ADDRSIZE, &msg.sender.bytes[0]);
 	msg.input_data = trx.data.data();
 	msg.input_size = trx.data.size();
 	std::copy(trx.value.begin(), trx.value.end(), &msg.value.bytes[0]);
@@ -390,11 +392,6 @@ evmc_result test_contract::vm_execute(std::vector<uint8_t> &code, test_contract:
 
 	auto vm = evmc_create_evmone();
 	evmc_result result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
-	print(" \ngas left is : ", result.gas_left);
-	evmc::bytes output;
-	output = {result.output_data, result.output_size};
-	print(" \nres is : ");
-	printhex(output.data(), output.size());
 	return result;
 }
 
@@ -517,4 +514,19 @@ std::vector<uint8_t> test_contract::RLPEncodeTrx(const rlp_decode_trx &trx) {
 
 	std::vector<uint8_t> unsigned_trx = unsigned_trx_builder.build();
 	return unsigned_trx;
+}
+
+void test_contract::print_vm_receipt(evmc_result result, test_contract::rlp_decode_trx &trx, evmc_address &sender) {
+	print(" \nstatus_code : ",      evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)));
+	print(" \noutput      : ");     printhex(result.output_data, result.output_size);
+	print(" \nfrom        : ");     printhex(&sender.bytes[0], sizeof(evmc_address));
+	print(" \nto          : ");     printhex(trx.to.data(), trx.to.size());
+	print(" \nnonce       : ",      uint_from_vector(trx.nonce_v, "nonce"));
+	print(" \ngas_price   : ",      uint_from_vector(trx.gasPrice_v, "gasPrice_v"));
+	print(" \ngas         : ",      uint_from_vector(trx.gas_v, "gas"));
+	print(" \nvalue       : ",      uint_from_vector(trx.value, "value"));
+	print(" \ndata        : ");     printhex(trx.data.data(), trx.data.size());
+	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
+	print(" \nr           : ");     printhex(trx.r_v.data(), trx.r_v.size());
+	print(" \ns           : ");     printhex(trx.s_v.data(), trx.s_v.size());
 }

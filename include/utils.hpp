@@ -72,12 +72,27 @@ eosio::checksum256 evmc_uint256_to_checksum256(evmc_uint256be value) {
 	return eth_address;
 }
 
-eosio::checksum256 evmc_address_to_checksum256(evmc_address address) {
+eosio::checksum256 evmc_address_to_checksum256(const evmc_address &address) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
 	std::copy_n(&address.bytes[0], sizeof(evmc_address), eth_address_arr.begin()+PADDING);
-	eth_addr_256 eth_address = eosio::fixed_bytes<32>(eth_address_arr);
-	return eth_address;
+	eth_addr_256 eth_address_256 = eosio::fixed_bytes<32>(eth_address_arr);
+	return eth_address_256;
+}
+
+eosio::checksum160 evmc_address_to_checksum160(const evmc_address &address) {
+	std::array<uint8_t, 20> eth_address_arr;
+	eth_address_arr.fill({});
+	std::copy_n(&address.bytes[0], sizeof(evmc_address), eth_address_arr.begin());
+	eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_address_arr);
+	return eth_address_160;
+}
+
+evmc_address checksum160_to_evmc_address(const eth_addr_160 &address) {
+	evmc_address evmc_address;
+	auto address_arr_160 = address.extract_as_byte_array();
+	std::copy(address_arr_160.begin(), address_arr_160.end(), &evmc_address.bytes[0]);
+	return evmc_address;
 }
 
 eosio::checksum256 vector_to_checksum256(std::vector<uint8_t> &address) {
