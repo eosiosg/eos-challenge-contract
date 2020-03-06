@@ -1406,22 +1406,22 @@ constexpr op_table create_op_table_istanbul() noexcept
 }
 
 constexpr op_table op_tables[] = {
-    create_op_table_frontier(),           // Frontier
-    create_op_table_homestead(),          // Homestead
-    create_op_table_tangerine_whistle(),  // Tangerine Whistle
-    create_op_table_tangerine_whistle(),  // Spurious Dragon
-    create_op_table_byzantium(),          // Byzantium
-    create_op_table_constantinople(),     // Constantinople
-    create_op_table_constantinople(),     // Petersburg
+//    create_op_table_frontier(),           // Frontier
+//    create_op_table_homestead(),          // Homestead
+//    create_op_table_tangerine_whistle(),  // Tangerine Whistle
+//    create_op_table_tangerine_whistle(),  // Spurious Dragon
+//    create_op_table_byzantium(),          // Byzantium
+//    create_op_table_constantinople(),     // Constantinople
+//    create_op_table_constantinople(),     // Petersburg
     create_op_table_istanbul(),           // Istanbul
-    create_op_table_istanbul(),           // Berlin
+//    create_op_table_istanbul(),           // Berlin
 };
-static_assert(sizeof(op_tables) / sizeof(op_tables[0]) > EVMC_MAX_REVISION,
-    "op table entry missing for an EVMC revision");
+//static_assert(sizeof(op_tables) / sizeof(op_tables[0]) > EVMC_MAX_REVISION,
+//    "op table entry missing for an EVMC revision");
 }  // namespace
 
 EVMC_EXPORT const op_table& get_op_table(evmc_revision rev) noexcept
 {
-    return op_tables[rev];
+    return op_tables[0];
 }
 }  // namespace evmone

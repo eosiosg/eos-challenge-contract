@@ -7,9 +7,9 @@
 #include <rlp.hpp>
 #include <ecc/uECC.h>
 #include <evmc/mocked_host.hpp>
-#include <optional>
 #include <utils.hpp>
 #include <evmc_status_code.hpp>
+#include <eosio/binary_extension.hpp>
 
 using namespace eosio;
 
@@ -26,7 +26,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		[[eosio::action]]
 		void rawtrxexe(hex_code trx_param, eth_addr_160 eth_address, eth_addr_160 sender);
 		[[eosio::action]]
-		void raw(const hex_code &trx_code, const std::optional<eth_addr_160> &sender);
+		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
 		void create(name eos_account, std::string salt);
 		[[eosio::action]]

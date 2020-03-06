@@ -49,7 +49,7 @@ void test_contract::create(name eos_account, std::string salt) {
 	});
 }
 
-void test_contract::raw(const hex_code &trx_code, const std::optional<eth_addr_160> &sender) {
+void test_contract::raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender) {
 	/// decode trx_code
 	test_contract::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
 
@@ -75,13 +75,13 @@ void test_contract::raw(const hex_code &trx_code, const std::optional<eth_addr_1
 	if (!trx.is_r_s_zero()) {
 		evmc_sender = from;
 	} else {
-		assert_b(sender->size() != 0, "sender param can not be none"); /// sender exist;
+		assert_b(sender.has_value(), "sender param can not be none"); /// sender exist;
 		auto by_eth_account_index = _account.get_index<name("byeth")>();
 		eosio::checksum256 sender_checksum_256 = evmc_address_to_checksum256(evmc_sender);
 		auto itr_eth_addr = by_eth_account_index.find(sender_checksum_256);
 		assert_b(itr_eth_addr != by_eth_account_index.end(), "sender not exist");
 
-		evmc_sender = checksum160_to_evmc_address(*sender);
+		evmc_sender = checksum160_to_evmc_address(sender.value());
 	}
 	/// execute code
 	auto evm_result = vm_execute(code, trx, evmc_sender);
