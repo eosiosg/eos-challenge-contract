@@ -9,7 +9,7 @@
 #include <vector>
 #include <eosio/eosio.hpp>
 #include <eosio/action.hpp>
-#include <test_contract.hpp>
+#include <eos_evm.hpp>
 #include <utils.hpp>
 
 using namespace eosio;
@@ -114,7 +114,7 @@ class EOSHostContext : public Host {
   bool account_exists(const address &addr) const noexcept override {
 	record_account_access(addr);
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 	return itr_eth_addr != by_eth_account_index.end();
@@ -124,12 +124,12 @@ class EOSHostContext : public Host {
   bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
 	record_account_access(addr);
     eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 	if (itr_eth_addr == by_eth_account_index.end()) return {};
 
-	test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
 	auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 	/// key to checksum256
 	std::array<uint8_t, 32> key_array;
@@ -154,7 +154,7 @@ class EOSHostContext : public Host {
 	/// copy address to _addr(eosio::checksum256)
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
 
-	test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -162,7 +162,7 @@ class EOSHostContext : public Host {
 		return EVMC_STORAGE_UNCHANGED;
 	eosio::print("\n setting storage...");
 
-	  test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
 	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 	  /// key to checksum256
 	  std::array<uint8_t, 32> key_array;
@@ -201,11 +201,11 @@ class EOSHostContext : public Host {
   uint256be get_balance(const address &addr) const noexcept override {
 	  eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
 
-	  test_contract::tb_account _account(_contract->get_self(), _contract->get_self().value);
+	  eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	  auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
 	  auto itr_eth_addr = by_eth_account_index.find(_addr);
-	  test_contract::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
 	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 
 	  /// TODO need to test
@@ -221,7 +221,7 @@ class EOSHostContext : public Host {
   /// Get the account's code size (EVMC host method).
   size_t get_code_size(const address &addr) const noexcept override {
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
@@ -232,7 +232,7 @@ class EOSHostContext : public Host {
   /// Get the account's code hash (EVMC host method).
   bytes32 get_code_hash(const address &addr) const noexcept override {
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
@@ -252,7 +252,7 @@ class EOSHostContext : public Host {
 				   size_t buffer_size) const noexcept override {
 	record_account_access(addr);
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
-	test_contract::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
 	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");

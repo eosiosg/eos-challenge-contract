@@ -13,11 +13,11 @@
 
 using namespace eosio;
 
-class [[eosio::contract("test_contract")]] test_contract : public contract {
+class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 	public:
 		using contract::contract;
 
-		explicit test_contract(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
+		explicit eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
 
 		[[eosio::action]]
 		void rawtest(hex_code hexcode);
@@ -53,7 +53,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
 		};
 
-		struct [[eosio::table("test_contract")]] st_account {
+		struct [[eosio::table("eos_evm")]] st_account {
 			uint64_t           id;
 			eth_addr_160       eth_address;
 			uint64_t           nonce;
@@ -70,7 +70,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 			indexed_by<"byeos"_n, const_mem_fun<st_account, uint64_t, &st_account::by_eos>>
 			> tb_account;
 
-		struct [[eosio::table("test_contract")]] st_account_state {
+		struct [[eosio::table("eos_evm")]] st_account_state {
 		    uint64_t           id;
 			eosio::checksum256 key;
 			eosio::checksum256 value;
@@ -80,7 +80,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 
 		typedef eosio::multi_index<"accountstate"_n, st_account_state> tb_account_state;
 
-		struct [[eosio::table("test_contract")]] st_account_storage {
+		struct [[eosio::table("eos_evm")]] st_account_storage {
 			uint64_t             id;
 			eosio::checksum256   storage_key;
 			eosio::checksum256   storage_val;
@@ -93,7 +93,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 			indexed_by<"bystorekey"_n, const_mem_fun<st_account_storage, eosio::checksum256, &st_account_storage::by_storage_key>>
 		> tb_account_storage;
 
-		struct [[eosio::table("test_contract")]] st_account_code {
+		struct [[eosio::table("eos_evm")]] st_account_code {
 		  	uint64_t             id;
 			eth_addr_160         eth_address;
 			std::vector<uint8_t> bytecode;
@@ -106,7 +106,7 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 			indexed_by<"byeth"_n, const_mem_fun<st_account_code, eth_addr_256 , &st_account_code::by_eth>>
 			> tb_account_code;
 
-		struct [[eosio::table("test_contract")]] st_global_nonce {
+		struct [[eosio::table("eos_evm")]] st_global_nonce {
 			uint64_t nonce;
 
 			uint64_t primary_key() const { return 0; };
@@ -132,9 +132,9 @@ class [[eosio::contract("test_contract")]] test_contract : public contract {
 		/// get code
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
 		/// vm execute
-		evmc_result vm_execute(std::vector<uint8_t> &code, test_contract::rlp_decode_trx &trx, evmc_address &sender);
+		evmc_result vm_execute(std::vector<uint8_t> &code, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
 		/// print receipt
-		void print_vm_receipt(evmc_result result, test_contract::rlp_decode_trx &trx, evmc_address &sender);
+		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
 	};
 
 

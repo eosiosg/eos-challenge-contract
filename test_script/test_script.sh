@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cleos set contract bpa  ./test_contract -p bpa
+cleos set contract bpa  ./eos_evm -p bpa
 # create account
 cleos push action bpa create '[bpb, "aaaaaa"]' -p bpb
 cleos push action bpa create '[bpc, "aaaaaa"]' -p bpc
