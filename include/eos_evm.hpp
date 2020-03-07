@@ -50,6 +50,26 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			std::vector<uint8_t> r_v;
 			std::vector<uint8_t> s_v;
 
+			uint64_t get_chain_id() {
+				uint64_t chain_id = uint_from_vector(v, "chain ID");
+				return chain_id;
+			}
+
+			uint8_t get_actual_v() {
+				uint8_t actual_v;
+				auto chain_id = get_chain_id();
+				eosio::check(chain_id >= 37, "Non-EIP-155 signature V value");
+
+				if (chain_id % 2) {
+					actual_v = 0;
+					chain_id = (chain_id - 35) / 2;
+				} else {
+					actual_v = 1;
+					chain_id = (chain_id - 36) / 2;
+				}
+				return actual_v;
+			}
+
 			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
 		};
 
@@ -124,7 +144,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		/// RLP
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
-		uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label);
 		rlp_decode_trx RLPDecodeTrx(const hex_code &trx_code);
 		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
 		/// keccak hash

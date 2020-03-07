@@ -55,6 +55,18 @@ std::string int2hex(uint64_t dec_num) {
   return hexdec_num;
 }
 
+uint64_t uint_from_vector(std::vector<uint8_t> v, const char *label) {
+	eosio::check(v.size() <= 8, "uint from vector size too large");
+
+	uint64_t u = 0;
+	for (size_t i = 0; i < v.size(); i++) {
+		u = u << 8;
+		u += v[i];
+	}
+
+	return u;
+}
+
 void to_evmc_uint256be(uint64_t val, evmc_uint256be *ret) {
   uint8_t mask = 0xff;
   for (size_t i = 0; i < sizeof(evmc_uint256be); i++) {

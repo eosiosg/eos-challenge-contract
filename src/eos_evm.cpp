@@ -65,7 +65,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	std::copy(trx.s_v.begin(), trx.s_v.end(), s.bytes);
 
 	/// Recover Address
-	evmc_address from = ecrecover(evmc_unsigned_trx_hash, 0, r, s);
+	evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
 
 	/// get eth code
 	auto eth_dest = vector_to_checksum256(trx.to);
@@ -167,7 +167,7 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 
 	std::array<uint8_t, 65> signature;
 	signature.fill({});
-	signature[0] = 0x1f;
+	signature[0] = version + 31;
 	std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be), signature.data()+1);
 	std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be), signature.data()+33);
 
@@ -198,167 +198,6 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 	return address;
 }
 
-/// pass hex code to execute in evm
-/// auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6); == 30316000526006601af3
-/// "30316000526006601af3"  get balance
-/// "6007600d0160005260206000f3" execute compute return 0x14
-void eos_evm::rawtest(hex_code hexcode) {
-	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-	evmc_revision rev = EVMC_BYZANTIUM;
-	evmc_message msg{};
-
-	msg.gas = 2000;
-	auto vm = evmc::VM{evmc_create_evmone()};
-	std::vector<uint8_t> code = HexToBytes(hexcode);
-	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
-	evmc::bytes output;
-	output = {result.output_data, result.output_size};
-
-	print(" \nres is : ");
-	printhex(output.data(), output.size());
-}
-
-void eos_evm::verifysig(hex_code trx_code) {
-  	std::vector<uint8_t> tx = HexToBytes(trx_code);
-  	RLPParser tx_envelope_p = RLPParser(tx);
-	std::vector<uint8_t> tx_envelope = tx_envelope_p.next();
-	//assert_b(!tx_envelope_p.at_end(), "There are more bytes here than one transaction");
-
-	RLPParser tx_parts_p = RLPParser(tx_envelope);
-
-	std::vector<uint8_t> nonce_v = next_part(tx_parts_p, "nonce");
-	std::vector<uint8_t> gasPrice_v = next_part(tx_parts_p, "gas price");
-	std::vector<uint8_t> gas_v = next_part(tx_parts_p, "start gas");
-	std::vector<uint8_t> to = next_part(tx_parts_p, "to address");
-	std::vector<uint8_t> value_v = next_part(tx_parts_p, "value");
-	std::vector<uint8_t> data = next_part(tx_parts_p, "data");
-	std::vector<uint8_t> v = next_part(tx_parts_p, "signature V");
-	std::vector<uint8_t> r_v = next_part(tx_parts_p, "signature R");
-	std::vector<uint8_t> s_v = next_part(tx_parts_p, "signature S");
-
-	uint64_t nonce = uint_from_vector(nonce_v, "nonce");
-	uint64_t gasPrice = uint_from_vector(gasPrice_v, "gas price");
-	uint64_t gas = uint_from_vector(gas_v, "start gas");
-	uint64_t value = uint_from_vector(value_v, "value");
-
-	assert_b(r_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
-	evmc_uint256be r;
-	std::copy(r_v.begin(), r_v.end(), r.bytes);
-
-	assert_b(s_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
-	evmc_uint256be s;
-	std::copy(s_v.begin(), s_v.end(), s.bytes);
-
-	// Figure out non-signed V
-
-	if (v.size() < 1) {
-	  return;
-	}
-
-	uint64_t chainID = uint_from_vector(v, "chain ID");
-
-	uint8_t actualV;
-	assert_b(chainID >= 37, "Non-EIP-155 signature V value");
-
-	if (chainID % 2) {
-	  actualV = 0;
-	  chainID = (chainID - 35) / 2;
-	} else {
-	  actualV = 1;
-	  chainID = (chainID - 36) / 2;
-	}
-
-	// Re-encode RLP
-
-	RLPBuilder unsigned_trx_builder;
-	unsigned_trx_builder.start_list();
-
-	std::vector<uint8_t> empty;
-	unsigned_trx_builder.add(empty);    // S
-	unsigned_trx_builder.add(empty);    // R
-	unsigned_trx_builder.add(chainID);  // V
-	unsigned_trx_builder.add(data);
-	if (value == 0) {
-	  // signing hash expects 0x80 here, not 0x00
-	  unsigned_trx_builder.add(empty);
-	} else {
-	  unsigned_trx_builder.add(value);
-	}
-	unsigned_trx_builder.add(to);
-	if (gas == 0) {
-	  unsigned_trx_builder.add(empty);
-	} else {
-	  unsigned_trx_builder.add(gas);
-	}
-	if (gasPrice == 0) {
-	  unsigned_trx_builder.add(empty);
-	} else {
-	  unsigned_trx_builder.add(gasPrice);
-	}
-	if (nonce == 0) {
-	  unsigned_trx_builder.add(empty);
-	} else {
-	  unsigned_trx_builder.add(nonce);
-	}
-
-	std::vector<uint8_t> unsigned_trx = unsigned_trx_builder.build();
-
-	// Recover Address
-	auto unsigned_trx_hash = ethash::keccak256(unsigned_trx.data(), unsigned_trx.size());
-	evmc_uint256be evmc_unsigned_trx_hash;
-	std::copy(&unsigned_trx_hash.bytes[0], unsigned_trx_hash.bytes + sizeof(evmc_uint256be),
-			  &evmc_unsigned_trx_hash.bytes[0]);
-
-	print("\n actual V", actualV);
-	evmc_address from = ecrecover(evmc_unsigned_trx_hash, actualV, r, s);
-	/// TODO check from address in account table
-	std::array<uint8_t, 32> eth_array;
-	eth_array.fill({});
-	std::copy_n(&from.bytes[0], 20, eth_array.begin()+12);
-	eth_addr_256 eth_address_256 = eosio::fixed_bytes<32>(eth_array);
-//	tb_account _account(_self, _self.value);
-	auto by_eth_account_index = _account.get_index<name("byeth")>();
-	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
-}
-
-/// eg: trx: e42a722b00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000008
-///     eth_address: contract address
-///     smart contract code: 6080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063e42a722b14604e578063ef5fb05b1460a2575b600080fd5b348015605957600080fd5b506086600480360381019080803560030b9060200190929190803560030b906020019092919050505060d0565b604051808260030b60030b815260200191505060405180910390f35b34801560ad57600080fd5b5060b460dd565b604051808260030b60030b815260200191505060405180910390f35b6000818301905092915050565b600060149050905600a165627a7a72305820556e7725ce14e3dfb830dceeb656d8cfafb2e1391d84f4a9daaaa057435c69cd0029
-void eos_evm::rawtrxexe(hex_code trx_param, eth_addr_160 eth_address, eth_addr_160 sender) {
-	eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address);
-	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-	evmc_revision rev = EVMC_BYZANTIUM;
-	evmc_message msg{};
-	msg.kind = EVMC_CALL;
-	auto data = HexToBytes(trx_param);
-	msg.input_data = data.data();
-	msg.input_size = data.size();
-	/// copy sender to msg.sender
-	auto eth_sender_array = sender.extract_as_byte_array();
-	std::copy(eth_sender_array.begin(), eth_sender_array.end(), &msg.sender.bytes[0]);
-	/// copy eosio::checksum256 to bytes[20]
-	auto eth_array = eth_address.extract_as_byte_array();
-	std::copy(eth_array.begin(), eth_array.end(), &msg.destination.bytes[0]);
-	msg.gas = 2000000;
-
-	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
-	auto itr_eth_code = by_eth_account_code_index.find(eth_address_256);
-	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
-
-	std::vector<uint8_t> code = itr_eth_code->bytecode;
-
-	auto vm = evmc_create_evmone();
-	evmc_result result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
-
-	print(" \ngas left is : ", result.gas_left);
-	assert_b(result.status_code == EVMC_SUCCESS, "execute failed");
-	print_f("\n res status: %", static_cast<uint64_t>(result.status_code));
-	evmc::bytes output;
-	output = {result.output_data, result.output_size};
-	print(" \nres is : ");
-	printhex(output.data(), output.size());
-}
 
 evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx) {
 	auto unsigned_trx_hash = ethash::keccak256(unsigned_trx.data(), unsigned_trx.size());
@@ -412,18 +251,6 @@ uint64_t eos_evm::get_nonce() {
 std::vector<uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
 	assert_b(!parser.at_end(), "Transaction too short");
 	return parser.next();
-}
-
-uint64_t eos_evm::uint_from_vector(std::vector<uint8_t> v, const char *label) {
-	assert_b(v.size() <= 8, "uint from vector size too large");
-
-	uint64_t u = 0;
-	for (size_t i = 0; i < v.size(); i++) {
-		u = u << 8;
-		u += v[i];
-	}
-
-	return u;
 }
 
 eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
@@ -529,4 +356,167 @@ void eos_evm::print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx,
 	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
 	print(" \nr           : ");     printhex(trx.r_v.data(), trx.r_v.size());
 	print(" \ns           : ");     printhex(trx.s_v.data(), trx.s_v.size());
+}
+
+
+/// pass hex code to execute in evm
+/// auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6); == 30316000526006601af3
+/// "30316000526006601af3"  get balance
+/// "6007600d0160005260206000f3" execute compute return 0x14
+void eos_evm::rawtest(hex_code hexcode) {
+	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc_revision rev = EVMC_BYZANTIUM;
+	evmc_message msg{};
+
+	msg.gas = 2000;
+	auto vm = evmc::VM{evmc_create_evmone()};
+	std::vector<uint8_t> code = HexToBytes(hexcode);
+	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+	evmc::bytes output;
+	output = {result.output_data, result.output_size};
+
+	print(" \nres is : ");
+	printhex(output.data(), output.size());
+}
+
+void eos_evm::verifysig(hex_code trx_code) {
+	std::vector<uint8_t> tx = HexToBytes(trx_code);
+	RLPParser tx_envelope_p = RLPParser(tx);
+	std::vector<uint8_t> tx_envelope = tx_envelope_p.next();
+	//assert_b(!tx_envelope_p.at_end(), "There are more bytes here than one transaction");
+
+	RLPParser tx_parts_p = RLPParser(tx_envelope);
+
+	std::vector<uint8_t> nonce_v = next_part(tx_parts_p, "nonce");
+	std::vector<uint8_t> gasPrice_v = next_part(tx_parts_p, "gas price");
+	std::vector<uint8_t> gas_v = next_part(tx_parts_p, "start gas");
+	std::vector<uint8_t> to = next_part(tx_parts_p, "to address");
+	std::vector<uint8_t> value_v = next_part(tx_parts_p, "value");
+	std::vector<uint8_t> data = next_part(tx_parts_p, "data");
+	std::vector<uint8_t> v = next_part(tx_parts_p, "signature V");
+	std::vector<uint8_t> r_v = next_part(tx_parts_p, "signature R");
+	std::vector<uint8_t> s_v = next_part(tx_parts_p, "signature S");
+
+	uint64_t nonce = uint_from_vector(nonce_v, "nonce");
+	uint64_t gasPrice = uint_from_vector(gasPrice_v, "gas price");
+	uint64_t gas = uint_from_vector(gas_v, "start gas");
+	uint64_t value = uint_from_vector(value_v, "value");
+
+	assert_b(r_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be r;
+	std::copy(r_v.begin(), r_v.end(), r.bytes);
+
+	assert_b(s_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
+	evmc_uint256be s;
+	std::copy(s_v.begin(), s_v.end(), s.bytes);
+
+	// Figure out non-signed V
+
+	if (v.size() < 1) {
+		return;
+	}
+
+	uint64_t chainID = uint_from_vector(v, "chain ID");
+
+	uint8_t actualV;
+	assert_b(chainID >= 37, "Non-EIP-155 signature V value");
+
+	if (chainID % 2) {
+		actualV = 0;
+		chainID = (chainID - 35) / 2;
+	} else {
+		actualV = 1;
+		chainID = (chainID - 36) / 2;
+	}
+
+	// Re-encode RLP
+
+	RLPBuilder unsigned_trx_builder;
+	unsigned_trx_builder.start_list();
+
+	std::vector<uint8_t> empty;
+	unsigned_trx_builder.add(empty);    // S
+	unsigned_trx_builder.add(empty);    // R
+	unsigned_trx_builder.add(chainID);  // V
+	unsigned_trx_builder.add(data);
+	if (value == 0) {
+		// signing hash expects 0x80 here, not 0x00
+		unsigned_trx_builder.add(empty);
+	} else {
+		unsigned_trx_builder.add(value);
+	}
+	unsigned_trx_builder.add(to);
+	if (gas == 0) {
+		unsigned_trx_builder.add(empty);
+	} else {
+		unsigned_trx_builder.add(gas);
+	}
+	if (gasPrice == 0) {
+		unsigned_trx_builder.add(empty);
+	} else {
+		unsigned_trx_builder.add(gasPrice);
+	}
+	if (nonce == 0) {
+		unsigned_trx_builder.add(empty);
+	} else {
+		unsigned_trx_builder.add(nonce);
+	}
+
+	std::vector<uint8_t> unsigned_trx = unsigned_trx_builder.build();
+
+	// Recover Address
+	auto unsigned_trx_hash = ethash::keccak256(unsigned_trx.data(), unsigned_trx.size());
+	evmc_uint256be evmc_unsigned_trx_hash;
+	std::copy(&unsigned_trx_hash.bytes[0], unsigned_trx_hash.bytes + sizeof(evmc_uint256be),
+	          &evmc_unsigned_trx_hash.bytes[0]);
+
+	print("\n actual V", actualV);
+	evmc_address from = ecrecover(evmc_unsigned_trx_hash, actualV, r, s);
+	/// TODO check from address in account table
+	std::array<uint8_t, 32> eth_array;
+	eth_array.fill({});
+	std::copy_n(&from.bytes[0], 20, eth_array.begin()+12);
+	eth_addr_256 eth_address_256 = eosio::fixed_bytes<32>(eth_array);
+//	tb_account _account(_self, _self.value);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+	assert_b(itr_eth_addr != by_eth_account_index.end(), "invalid signed transaction");
+}
+
+/// eg: trx: e42a722b00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000008
+///     eth_address: contract address
+///     smart contract code: 6080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063e42a722b14604e578063ef5fb05b1460a2575b600080fd5b348015605957600080fd5b506086600480360381019080803560030b9060200190929190803560030b906020019092919050505060d0565b604051808260030b60030b815260200191505060405180910390f35b34801560ad57600080fd5b5060b460dd565b604051808260030b60030b815260200191505060405180910390f35b6000818301905092915050565b600060149050905600a165627a7a72305820556e7725ce14e3dfb830dceeb656d8cfafb2e1391d84f4a9daaaa057435c69cd0029
+void eos_evm::rawtrxexe(hex_code trx_param, eth_addr_160 eth_address, eth_addr_160 sender) {
+	eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address);
+	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc_revision rev = EVMC_BYZANTIUM;
+	evmc_message msg{};
+	msg.kind = EVMC_CALL;
+	auto data = HexToBytes(trx_param);
+	msg.input_data = data.data();
+	msg.input_size = data.size();
+	/// copy sender to msg.sender
+	auto eth_sender_array = sender.extract_as_byte_array();
+	std::copy(eth_sender_array.begin(), eth_sender_array.end(), &msg.sender.bytes[0]);
+	/// copy eosio::checksum256 to bytes[20]
+	auto eth_array = eth_address.extract_as_byte_array();
+	std::copy(eth_array.begin(), eth_array.end(), &msg.destination.bytes[0]);
+	msg.gas = 2000000;
+
+	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+	auto itr_eth_code = by_eth_account_code_index.find(eth_address_256);
+	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
+
+	std::vector<uint8_t> code = itr_eth_code->bytecode;
+
+	auto vm = evmc_create_evmone();
+	evmc_result result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
+
+	print(" \ngas left is : ", result.gas_left);
+	assert_b(result.status_code == EVMC_SUCCESS, "execute failed");
+	print_f("\n res status: %", static_cast<uint64_t>(result.status_code));
+	evmc::bytes output;
+	output = {result.output_data, result.output_size};
+	print(" \nres is : ");
+	printhex(output.data(), output.size());
 }
