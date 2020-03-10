@@ -5,10 +5,10 @@
 #include <evmc/evmc.hpp>
 #include <algorithm>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <eosio/eosio.hpp>
 #include <eosio/action.hpp>
+#include <eosio/transaction.hpp>
 #include <eos_evm.hpp>
 #include <utils.hpp>
 
@@ -129,7 +129,7 @@ class EOSHostContext : public Host {
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 	if (itr_eth_addr == by_eth_account_index.end()) return {};
 
-	eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
 	auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 	/// key to checksum256
 	std::array<uint8_t, 32> key_array;
@@ -162,7 +162,7 @@ class EOSHostContext : public Host {
 		return EVMC_STORAGE_UNCHANGED;
 	eosio::print("\n setting storage...");
 
-	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
 	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 	  /// key to checksum256
 	  std::array<uint8_t, 32> key_array;
@@ -205,7 +205,7 @@ class EOSHostContext : public Host {
 	  auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
 	  auto itr_eth_addr = by_eth_account_index.find(_addr);
-	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->eosio_account.value);
+	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
 	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
 
 	  /// TODO need to test
@@ -224,9 +224,12 @@ class EOSHostContext : public Host {
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
-	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
-	auto bytecode = itr_eth_code->bytecode;
-	return bytecode.size();
+	if (itr_eth_code == by_eth_account_code_index.end()) {
+	    return {};
+	} else {
+        auto bytecode = itr_eth_code->bytecode;
+        return bytecode.size();
+	}
   }
 
   /// Get the account's code hash (EVMC host method).
@@ -235,14 +238,17 @@ class EOSHostContext : public Host {
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
-	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
-	auto code = itr_eth_code->bytecode;
-	/// TODO code to hex string then sha256
-//  eosio::checksum256 hash_val = eosio::sha256(salt.c_str(), 32);
-
-	/// convert eosio::checksum256 to evmc::byte32
-	evmc::bytes32 hash;
-	return hash;
+	if (itr_eth_code == by_eth_account_code_index.end()) {
+	    return {};
+	} else {
+        auto code = itr_eth_code->bytecode;
+        eosio::checksum256 code_hash = eosio::sha256((const char *)code.data(), (uint32_t)code.size());
+        /// convert eosio::checksum256 to evmc::byte32
+        evmc::bytes32 hash;
+        auto code_hash_arr = code_hash.extract_as_byte_array();
+        std::copy(code_hash_arr.begin(), code_hash_arr.end(), &hash.bytes[0]);
+        return hash;
+    }
   }
 
   /// Copy the account's code to the given buffer (EVMC host method).
@@ -255,22 +261,46 @@ class EOSHostContext : public Host {
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
-	assert_b(itr_eth_code != by_eth_account_code_index.end(), "no such address");
-	auto code = itr_eth_code->bytecode;
+	if (itr_eth_code == by_eth_account_code_index.end()) {
+	    return 0;
+	} else {
+        auto code = itr_eth_code->bytecode;
 
-	if (code_offset >= code.size()) return 0;
+        if (code_offset >= code.size()) return 0;
 
-	const auto n = std::min(buffer_size, code.size() - code_offset);
-	if (n > 0) {
-	  std::copy_n(&code[code_offset], n, buffer_data);
+        const auto n = std::min(buffer_size, code.size() - code_offset);
+        if (n > 0) {
+            std::copy_n(&code[code_offset], n, buffer_data);
+        }
+        return n;
 	}
-	return n;
   }
 
   /// Selfdestruct the account (EVMC host method).
   void selfdestruct(const address &addr, const address &beneficiary) noexcept override {
-	record_account_access(addr);
-	recorded_selfdestructs.push_back({addr, beneficiary});
+      eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+      /// 1. remove account table record
+      eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+      auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
+      auto itr_eth_addr = by_eth_account_index.find(_addr);
+      if (itr_eth_addr != by_eth_account_index.end()) {
+          by_eth_account_index.erase(itr_eth_addr);
+      }
+      /// 2. remove account code table record
+      eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+      auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
+      auto itr_eth_code = by_eth_account_code_index.find(_addr);
+      if (itr_eth_code != by_eth_account_code_index.end()) {
+          by_eth_account_code_index.erase(itr_eth_code);
+      }
+      /// 3. remove account storage record
+      eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
+      auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+      auto itr_eth_addr_store = by_eth_account_storage_index.begin();
+      while(itr_eth_addr_store != by_eth_account_storage_index.end()) {
+          /// TODO: if have large amount of data need to batch delete
+          by_eth_account_storage_index.erase(itr_eth_addr_store);
+      }
   }
 
   /// Call/create other contract (EVMC host method).
@@ -297,29 +327,18 @@ class EOSHostContext : public Host {
   /// Get transaction context (EVMC host method).
   evmc_tx_context get_tx_context() const noexcept override {
 	evmc_tx_context result = {};
-//    result.tx_gas_price = toEvmC(m_extVM.gasPrice); /**< The transaction gas price. */
-//    result.tx_origin = toEvmC(m_extVM.origin); /**< The transaction origin account. */
-//    result.block_coinbase = toEvmC(envInfo.author());  /**< The miner of the block. */
-//    result.block_number = envInfo.number();          /**< The block number. */
-//    result.block_timestamp = envInfo.timestamp();    /**< The block timestamp. */
-//    result.block_gas_limit = static_cast<int64_t>(envInfo.gasLimit());
-//    result.block_difficulty = toEvmC(envInfo.difficulty());
-//    result.chain_id = toEvmC(envInfo.chainID());  /**< The blockchain's ChainID. */
-
-//	result.tx_gas_price = 100;
-//	result.tx_origin = current_receiver();
-//	result.block_coinbase = name{eosio};
-//	result.block_number = eosio::tapos_block_num();
-//	result.block_timestamp = eosio::publication_time();
-//	result.block_gas_limit = 10000;
-//	result.block_difficulty = 10;
+	result.block_coinbase = evmc_address({0});
+	result.block_number = eosio::tapos_block_num();
+	result.block_timestamp = eosio::time_point().sec_since_epoch();
+	result.block_gas_limit = 10000000;
+	result.block_difficulty = evmc_uint256be({0});
 
     return result;
   }
 
   /// Get the block header hash (EVMC host method).
   bytes32 get_block_hash(int64_t block_number) const noexcept override {
-	recorded_blockhashes.emplace_back(block_number);
+    bytes32 block_hash({0});
 	return block_hash;
   }
 
