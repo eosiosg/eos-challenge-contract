@@ -124,3 +124,12 @@ eth_addr_256 eth_addr_160_to_eth_addr_256(const eth_addr_160 &eth_address_160) {
 	auto eth_address_256 = eosio::fixed_bytes<32>(eth_arr_256);
 	return eth_address_256;
 }
+
+eth_addr_160 eth_addr_256_to_eth_addr_160(const eth_addr_256 &eth_address_256) {
+    auto eth_arr_256 = eth_address_256.extract_as_byte_array();
+    std::array<uint8_t, 20> eth_arr_160;
+    eth_arr_160.fill({});
+    std::copy(eth_arr_256.begin()+PADDING, eth_arr_256.end(), eth_arr_160.begin());
+    auto eth_address_160 = eosio::fixed_bytes<20>(eth_arr_160);
+    return eth_address_160;
+}

@@ -28,7 +28,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
-		void create(name eos_account, std::string salt);
+		void create(name eos_account, std::string eth_address);
 		[[eosio::action]]
 		void updateeth(eth_addr_160 eth_address, name eos_account);
 		[[eosio::action]]
@@ -78,11 +78,16 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			eth_addr_160       eth_address;
 			uint64_t           nonce;
 			asset              eosio_balance;
-			name               eosio_account;
+			name               eosio_account; /// TODO need to change as optional
 
 			uint64_t primary_key() const { return id; };
 			eth_addr_256 by_eth() const { return eth_addr_160_to_eth_addr_256(eth_address); };
-			uint64_t by_eos() const { return eosio_account.value; };
+			uint64_t by_eos() const {
+			    if (bool(eosio_account)) {
+                    return eosio_account.value;
+			    }
+			    return 0;
+			};
 		};
 
 		typedef eosio::multi_index<"account"_n, st_account,
