@@ -46,7 +46,7 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> salt
         the_account.id = _account.available_primary_key();
         the_account.eth_address = eth_address_160;
         the_account.nonce = 1;
-        the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
+        the_account.eosio_balance = asset(0, symbol(symbol_code("SYS"), 4));
         the_account.eosio_account = eos_account;
     });
 }
@@ -54,6 +54,8 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> salt
 void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender) {
 	/// decode trx_code
 	eos_evm::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
+
+	/// TODO: assert if nonce + 1
 
 	/// encode raw trx_code
 	std::vector<uint8_t> unsigned_trx = RLPEncodeTrx(trx);
@@ -97,6 +99,8 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	/// execute code
 	auto evm_result = vm_execute(code, trx, evmc_sender);
 
+	/// TODO: if result == EVMC_SUCCESS, global nonce + 1;
+
 	/// print result
 	print_vm_receipt(evm_result, trx, evmc_sender);
 }
@@ -120,7 +124,7 @@ void eos_evm::createeth(name eos_account,  const eth_addr_160 &eth_address) {
         the_account.id = _account.available_primary_key();
         the_account.eth_address = eth_address;
         the_account.nonce = 1;
-        the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
+        the_account.eosio_balance = asset(0, symbol(symbol_code("SYS"), 4));
         the_account.eosio_account = name(); /// no associate eosio account
     });
 }
