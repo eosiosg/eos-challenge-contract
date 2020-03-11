@@ -28,9 +28,9 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
-		void create(name eos_account, std::string eth_address);
+		void create(name eos_account, const binary_extension<std::string> salt);
 		[[eosio::action]]
-		void updateeth(eth_addr_160 eth_address, name eos_account);
+        void createeth(name eos_account, const eth_addr_160 &eth_address);
 		[[eosio::action]]
 		void transfers(name from, asset amount);
 		[[eosio::action]]

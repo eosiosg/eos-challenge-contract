@@ -11,60 +11,44 @@ eos_evm::eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*
 _account(_self, _self.value), _account_code(_self, _self.value), _nonce(_self, _self.value){
 }
 
-/// TODO: change to binary extension eth_address
-void eos_evm::create(name eos_account, std::string eth_address) {
+void eos_evm::create(name eos_account,  const binary_extension<std::string> salt) {
 	require_auth(eos_account);
 	// check eosio account exist
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
 	assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
 
-	/// 1. eth_address == 160 bits eth account  set directly eth_address
-	if (eth_address.size() == 40) {
-	    auto eth_address_arr = HexToBytes(eth_address);
-        eth_addr_256 eth_address_256 = vector_to_checksum256(eth_address_arr);
-        auto by_eth_account_index = _account.get_index<name("byeth")>();
-        auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-        assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+	auto salt_value = salt.has_value() ? salt.value() : "";
 
-        _account.emplace(_self, [&](auto &the_account) {
-            the_account.id = _account.available_primary_key();
-            the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
-            the_account.nonce = 1;
-            the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
-            the_account.eosio_account = name();
-        });
-	} else {
-        /// 2. eth_address ！= 160 bits eth account,  must associate EOSIO account
-        std::string eos_str = eos_account.to_string();
+    /// must associate EOSIO account
+    std::string eos_str = eos_account.to_string();
 
-        RLPBuilder eth_str;
-        eth_str.start_list();
-        eth_str.add(eos_str);
-        eth_str.add(eth_address);
-        std::vector<uint8_t> eth_rlp = eth_str.build();
+    RLPBuilder eth_str;
+    eth_str.start_list();
+    eth_str.add(eos_str);
+    eth_str.add(salt_value);
+    std::vector<uint8_t> eth_rlp = eth_str.build();
 
-        auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
-        auto eth_bytes = eth.bytes;
-        // transfer uint8_t [32] to std::array
-        std::array<uint8_t, 20> eth_array;
-        eth_array.fill({});
-        std::copy_n(&eth_bytes[0] + PADDING, 20, eth_array.begin());
-        eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_array);
-        eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address_160);
+    auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
+    auto eth_bytes = eth.bytes;
+    // transfer uint8_t [32] to std::array
+    std::array<uint8_t, 20> eth_array;
+    eth_array.fill({});
+    std::copy_n(&eth_bytes[0] + PADDING, 20, eth_array.begin());
+    eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_array);
+    eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address_160);
 
-        auto by_eth_account_index = _account.get_index<name("byeth")>();
-        auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-        assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+    auto by_eth_account_index = _account.get_index<name("byeth")>();
+    auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+    assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
 
-        _account.emplace(_self, [&](auto &the_account) {
-            the_account.id = _account.available_primary_key();
-            the_account.eth_address = eth_address_160;
-            the_account.nonce = 1;
-            the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
-            the_account.eosio_account = eos_account;
-        });
-	}
+    _account.emplace(_self, [&](auto &the_account) {
+        the_account.id = _account.available_primary_key();
+        the_account.eth_address = eth_address_160;
+        the_account.nonce = 1;
+        the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
+        the_account.eosio_account = eos_account;
+    });
 }
 
 void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender) {
@@ -117,13 +101,28 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	print_vm_receipt(evm_result, trx, evmc_sender);
 }
 
-void eos_evm::updateeth(eth_addr_160 eth_address, name eos_account) {
-	auto by_eos_account_index = _account.get_index<name("byeos")>();
-	auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
+void eos_evm::createeth(name eos_account,  const eth_addr_160 &eth_address) {
+    require_auth(eos_account);
+    /// 1. check eosio account exist
+    auto by_eos_account_index = _account.get_index<name("byeos")>();
+    auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
+    assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
+    /// 2. TODO assert eth_address valid
 
-	_account.modify(*itr_eos_addr, _self, [&](auto &the_account) {
-		the_account.eth_address = eth_address;
-	});
+    assert_b(eth_address.size() == 20, "invalid length eth address");
+    /// 3. eth_address == 160 bits eth account  set directly eth_address
+    eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address);
+    auto by_eth_account_index = _account.get_index<name("byeth")>();
+    auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+    assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+
+    _account.emplace(_self, [&](auto &the_account) {
+        the_account.id = _account.available_primary_key();
+        the_account.eth_address = eth_address;
+        the_account.nonce = 1;
+        the_account.eosio_balance = asset(0, symbol(symbol_code("EOS"), 4));
+        the_account.eosio_account = name(); /// no associate eosio account
+    });
 }
 
 void eos_evm::transfers(name from, asset amount) {
