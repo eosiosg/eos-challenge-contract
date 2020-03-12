@@ -8,7 +8,7 @@
 const evmc_address zero_address{{0}};
 
 eos_evm::eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds) ,
-_account(_self, _self.value), _account_code(_self, _self.value), _nonce(_self, _self.value){
+_account(_self, _self.value), _account_code(_self, _self.value), _nonce(_self, _self.value), _token_contract(_self, _self.value){
 }
 
 void eos_evm::create(name eos_account,  const binary_extension<std::string> salt) {
@@ -42,11 +42,14 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> salt
     auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
     assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
 
-    _account.emplace(_self, [&](auto &the_account) {
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	auto itr_token_contract = _token_contract.begin();
+
+	_account.emplace(_self, [&](auto &the_account) {
         the_account.id = _account.available_primary_key();
         the_account.eth_address = eth_address_160;
         the_account.nonce = 1;
-        the_account.eosio_balance = asset(0, symbol(symbol_code("SYS"), 4));
+        the_account.eosio_balance = asset(0, itr_token_contract->contract.get_symbol());
         the_account.eosio_account = eos_account;
     });
 }
@@ -55,7 +58,8 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	/// decode trx_code
 	eos_evm::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
 
-	/// TODO: assert if nonce + 1
+	/// assert nonce
+//	eosio::check(get_nonce() == uint_from_vector(trx.nonce_v, "nonce"), "nonce mismatch");
 
 	/// encode raw trx_code
 	std::vector<uint8_t> unsigned_trx = RLPEncodeTrx(trx);
@@ -99,73 +103,165 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	/// execute code
 	auto evm_result = vm_execute(code, trx, evmc_sender);
 
-	/// TODO: if result == EVMC_SUCCESS, global nonce + 1;
+	/// if result == EVMC_SUCCESS, global nonce + 1;
+//	if (evm_result.status_code == EVMC_SUCCESS) {
+//		set_nonce();
+//	}
 
 	/// print result
 	print_vm_receipt(evm_result, trx, evmc_sender);
 }
 
-void eos_evm::createeth(name eos_account,  const eth_addr_160 &eth_address) {
+void eos_evm::createeth(name eos_account,  const std::string &eth_address) {
     require_auth(eos_account);
-    /// 1. check eosio account exist
-    auto by_eos_account_index = _account.get_index<name("byeos")>();
-    auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
-    assert_b(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
-    /// 2. TODO assert eth_address valid
+    /// 0. to lower
+	/// 1. TODO assert eth_address valid
 
-    assert_b(eth_address.size() == 20, "invalid length eth address");
-    /// 3. eth_address == 160 bits eth account  set directly eth_address
-    eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address);
-    auto by_eth_account_index = _account.get_index<name("byeth")>();
-    auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-    assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+	assert_b(eth_address.size() == 40, "invalid length eth address");
+	auto eth_address_arr = HexToBytes(eth_address);
+	eth_addr_256 eth_address_256 = vector_to_checksum256(eth_address_arr);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+	assert_b(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
 
-    _account.emplace(_self, [&](auto &the_account) {
-        the_account.id = _account.available_primary_key();
-        the_account.eth_address = eth_address;
-        the_account.nonce = 1;
-        the_account.eosio_balance = asset(0, symbol(symbol_code("SYS"), 4));
-        the_account.eosio_account = name(); /// no associate eosio account
-    });
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	auto itr_token_contract = _token_contract.begin();
+
+	/// 2. eth_address == 160 bits eth account  set directly eth_address
+	_account.emplace(_self, [&](auto &the_account) {
+		the_account.id = _account.available_primary_key();
+		the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
+		the_account.nonce = 1;
+		the_account.eosio_balance = asset(0, itr_token_contract->contract.get_symbol());
+		the_account.eosio_account = name();
+	});
 }
 
-void eos_evm::transfers(name from, asset amount) {
+void eos_evm::settoken(const extended_symbol &contract) {
+	auto itr_token_contract = _token_contract.begin();
+	if (itr_token_contract == _token_contract.end()) {
+		_token_contract.emplace(_self, [&](auto &the_contract) {
+			the_contract.id = 0;
+			the_contract.contract = contract;
+		});
+	} else {
+		_token_contract.modify(itr_token_contract, eosio::same_payer, [&](auto &the_contract) {
+			the_contract.contract = contract;
+		});
+	}
+}
+
+void eos_evm::transfers(const name &from, const name &to, const asset &quantity, const std::string memo) {
 	require_auth(from);
+	if (from == _self || to != _self) {
+		return;
+	}
+
+	if (from == "eosio.bpay"_n || from == "eosio.names"_n || from == "eosio.ram"_n || from == "eosio.ramfee"_n ||
+	    from == "eosio.saving"_n || from == "eosio.stake"_n || from == "eosio.vpay"_n) {
+		return;
+	}
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	auto itr_token_contract = _token_contract.begin();
+	eosio::check(get_first_receiver() == itr_token_contract->contract.get_contract(), "not support this token contract");
+	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support this token symbol");
+	eosio::check(quantity.amount > 0, "cannot transfer negative balance");
+
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_from = by_eos_account_index.find(from.value);
 	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
     assert_b(itr_eos_from->eosio_account != name(), "no associate eosio account");
 
-	action(
-			permission_level{from, "active"_n},
-			"eosio.token"_n,
-			"transfer"_n,
-			std::make_tuple(from, _self, amount, std::string(""))
-	).send();
-	// update account table token balance
+    /// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.eosio_balance += amount;
+		the_account.eosio_balance += quantity;
 	});
 }
 
-void eos_evm::withdraw(name eos_account, asset amount) {
+void eos_evm::withdraw(name eos_account, asset quantity) {
 	require_auth(eos_account);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
-	assert_b(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
+	assert_b(itr_eos_from != by_eos_account_index.end(), "no such associate eosio account");
+
+	auto itr_token_contract = _token_contract.begin();
+	eosio::check(itr_token_contract != _token_contract.end(), "must set token contract first");
+	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support this token symbol");
 	/// check balance enough
-	assert_b(itr_eos_from->eosio_balance >= amount, "overdrawn balance");
+	assert_b(itr_eos_from->eosio_balance >= quantity, "overdrawn balance");
 
 	action(
-			permission_level{eos_account, "active"_n},
-			"eosio.token"_n,
+			permission_level{_self, "active"_n},
+			itr_token_contract->contract.get_contract(),
 			"transfer"_n,
-			std::make_tuple(_self, eos_account, amount, std::string(""))
+			std::make_tuple(_self, eos_account, quantity, std::string(""))
 	).send();
-	// update account table token balance
+	/// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.eosio_balance -= amount;
+		the_account.eosio_balance -= quantity;
 	});
+}
+
+void eos_evm::setcontract(const name &eos_creator, const hex_code &evm_code, const eth_addr_160 &sender, const uint64_t nonce) {
+	require_auth(eos_creator);
+	/// 1. assert nonce
+	eosio::check(get_nonce() == nonce, "nonce mismatch");
+
+	/// 2. construct evmc msg
+	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc_revision rev = EVMC_BYZANTIUM;
+	evmc_message msg{};
+	msg.kind = EVMC_CREATE;
+	msg.gas = 2000000;
+
+	/// 3. execute evmone
+	auto code = HexToBytes(evm_code);
+	auto vm = evmc_create_evmone();
+	auto result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
+
+	/// 4. get evmc_result output raw evm code
+	std::vector<uint8_t> raw_evm_code;
+	std::copy_n(result.output_data, result.output_size, std::back_inserter(raw_evm_code));
+
+	/// 5. create a new eth address contract
+	eth_addr_160 eth_contract_160 = contract_destination(sender, nonce);
+	eth_addr_256 eth_contract_256 = eth_addr_160_to_eth_addr_256(eth_contract_160);
+
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_contract_256);
+	assert_b(itr_eth_addr == by_eth_account_index.end(), "already exist eth contract");
+
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	auto itr_token_contract = _token_contract.begin();
+
+	/// 6. add contract address to table no associate eos account
+	_account.emplace(_self, [&](auto &the_account) {
+		the_account.id = _account.available_primary_key();
+		the_account.eth_address = eth_contract_160;
+		the_account.nonce = 1;
+		the_account.eosio_balance = asset(0, itr_token_contract->contract.get_symbol());
+		the_account.eosio_account = name();
+	});
+
+	/// 7. add code to table
+	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
+	auto itr_eth_code = by_eth_account_code_index.find(eth_contract_256);
+	eosio::check(itr_eth_code == by_eth_account_code_index.end(), "address already exist code");
+	_account_code.emplace(_self, [&](auto &the_account_code){
+		the_account_code.id = _account_code.available_primary_key();
+		the_account_code.eth_address = eth_contract_160;
+		the_account_code.bytecode = raw_evm_code;
+	});
+
+	/// 8. if evmc success set nonce ++
+	if (result.status_code == EVMC_SUCCESS) {
+		set_nonce();
+	}
+
+	/// 9. print generated eth address
+	print(" \nstatus_code   : ",      evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)));
+	print(" \noutput        : ");     printhex(result.output_data, result.output_size);
+	print(" \ncontract addr : ");     printhex(eth_contract_160.extract_as_byte_array().data(), eth_contract_160.extract_as_byte_array().size());
 }
 
 void eos_evm::setcode(eth_addr_160 eth_address, hex_code evm_code) {
@@ -176,18 +272,18 @@ void eos_evm::setcode(eth_addr_160 eth_address, hex_code evm_code) {
 	assert_b(itr_eth_addr != by_eth_account_index.end(), "no such eth account");
 
 	name eos_account = itr_eth_addr->eosio_account;
-	require_auth(eos_account);
+//	require_auth(eos_account);
 
 	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(eth_address_256);
 	if (itr_eth_code == by_eth_account_code_index.end()) {
-		_account_code.emplace(eos_account, [&](auto &the_account_code){
+		_account_code.emplace(_self, [&](auto &the_account_code){
 			the_account_code.id = _account_code.available_primary_key();
 			the_account_code.eth_address = eth_address;
 			the_account_code.bytecode = HexToBytes(evm_code);
 		});
 	} else {
-		_account_code.modify(*itr_eth_code, eos_account, [&](auto &the_account_code){
+		_account_code.modify(*itr_eth_code, eosio::same_payer, [&](auto &the_account_code){
 			the_account_code.bytecode = HexToBytes(evm_code);
 		});
 	}
@@ -273,12 +369,25 @@ void eos_evm::assert_b(bool test, const char *msg) {
 }
 
 uint64_t eos_evm::get_nonce() {
+	if (_nonce.begin() == _nonce.end()) {
+		_nonce.emplace(_self, [&](auto &the_nonce) {
+			the_nonce.nonce = 0;
+		});
+	}
+	/// return new nonce
+	return _nonce.begin()->nonce + 1;
+}
+
+void eos_evm::set_nonce() {
+	if (_nonce.begin() == _nonce.end()) {
+		_nonce.emplace(_self, [&](auto &the_nonce) {
+			the_nonce.nonce = 1;
+		});
+	}
 	/// modify + 1
 	_nonce.modify(_nonce.begin(), _self, [&](auto &the_nonce) {
 		the_nonce.nonce += 1;
 	});
-	/// return new nonce
-	return _nonce.begin()->nonce;
 }
 
 std::vector<uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
@@ -391,6 +500,22 @@ void eos_evm::print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx,
 	print(" \ns           : ");     printhex(trx.s_v.data(), trx.s_v.size());
 }
 
+eth_addr_160 eos_evm::contract_destination(const eth_addr_160 &sender, const uint64_t nonce) {
+	RLPBuilder eth_str;
+	eth_str.start_list();
+	eth_str.add(sender.extract_as_byte_array().data(), sender.extract_as_byte_array().size());
+	eth_str.add(nonce);
+	std::vector<uint8_t> eth_rlp = eth_str.build();
+
+	auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
+	auto eth_bytes = eth.bytes;
+	// transfer uint8_t [32] to std::array
+	std::array<uint8_t, 20> eth_array;
+	eth_array.fill({});
+	std::copy_n(&eth_bytes[0] + PADDING, 20, eth_array.begin());
+	eth_addr_160 eth_contract_160 = eosio::fixed_bytes<20>(eth_array);
+	return eth_contract_160;
+}
 
 /// pass hex code to execute in evm
 /// auto code = bytecode{} + OP_ADDRESS + OP_BALANCE + mstore(0) + ret(32 - 6, 6); == 30316000526006601af3
@@ -401,10 +526,10 @@ void eos_evm::rawtest(hex_code hexcode) {
 	evmc_revision rev = EVMC_BYZANTIUM;
 	evmc_message msg{};
 
-	msg.gas = 2000;
-	auto vm = evmc::VM{evmc_create_evmone()};
+	msg.gas = 2000000;
 	std::vector<uint8_t> code = HexToBytes(hexcode);
-	evmc::result result = vm.execute(host, rev, msg, code.data(), code.size());
+	auto vm = evmc_create_evmone();
+	evmc_result result = vm->execute(vm, &evmc::EOSHostContext::get_interface(), host.to_context(), rev, &msg, code.data(), code.size());
 	evmc::bytes output;
 	output = {result.output_data, result.output_size};
 

@@ -2,6 +2,7 @@
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
+#include <eosio/singleton.hpp>
 #include <evmc/evmc.h>
 #include <evmc/evmc.hpp>
 #include <rlp.hpp>
@@ -30,13 +31,17 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void create(name eos_account, const binary_extension<std::string> salt);
 		[[eosio::action]]
-        void createeth(name eos_account, const eth_addr_160 &eth_address);
-		[[eosio::action]]
-		void transfers(name from, asset amount);
+        void createeth(name eos_account, const std::string &eth_address);
+		[[eosio::on_notify("*::transfer")]]
+		void transfers(const name &from, const name &to, const asset &quantity, const std::string memo);
 		[[eosio::action]]
 		void withdraw(name eos_account, asset amount);
 		[[eosio::action]]
 		void setcode(eth_addr_160 eth_address, hex_code evm_code);
+		[[eosio::action]]
+		void setcontract(const name &eos_creator, const hex_code &evm_code, const eth_addr_160 &sender, const uint64_t nonce);
+		[[eosio::action]]
+		void settoken(const extended_symbol &contract);
 
 	public:
 		struct rlp_decode_trx {
@@ -139,12 +144,23 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 		typedef eosio::multi_index<"globalnonce"_n, st_global_nonce> tb_global_nonce;
 
+		struct [[eosio::table("eos_evm")]] st_token_contract {
+			uint64_t            id;
+			extended_symbol     contract;
+
+			uint64_t primary_key() const { return 0; }
+		} ;
+
+		typedef eosio::multi_index<"contract"_n, st_token_contract> tb_token_contract;
+
 		tb_account _account;
 		tb_account_code _account_code;
 		tb_global_nonce _nonce;
+		tb_token_contract _token_contract;
  	private:
 		void assert_b(bool test, const char *msg);
 		uint64_t get_nonce();
+		void set_nonce();
 		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		/// RLP
@@ -159,6 +175,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_result vm_execute(std::vector<uint8_t> &code, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
 		/// print receipt
 		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
+		/// get contract address
+		eth_addr_160 contract_destination(const eth_addr_160 &sender, const uint64_t nonce);
 	};
 
 
