@@ -81,6 +81,25 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
 		};
 
+		struct eth_log {
+			evmc_address address;
+			std::vector<evmc_uint256be> topics;
+			std::vector<uint8_t> data;
+
+			std::string topics_to_string() {
+				std::string topics_str;
+				for (int i = 0; i < topics.size(); ++i) {
+					topics_str += "\"";
+					topics_str += BytesToHex(std::vector<uint8_t>(&topics[i].bytes[0], &topics[i].bytes[0] + sizeof(evmc_uint256be)));
+					topics_str += "\"";
+					if (i != topics.size() - 1) {
+						topics_str += ",";
+					}
+				}
+				return topics_str;
+			}
+		};
+
 		struct [[eosio::table("eos_evm")]] st_account {
 			uint64_t           id;
 			eth_addr_160       eth_address;
@@ -155,6 +174,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		} ;
 
 		typedef eosio::multi_index<"contract"_n, st_token_contract> tb_token_contract;
+		std::vector<eos_evm::eth_log> eth_emit_logs;
 
 	public:
 		/// get contract address

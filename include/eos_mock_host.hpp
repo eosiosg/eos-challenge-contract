@@ -402,6 +402,14 @@ public:
 				const bytes32 topics[],
 				size_t topics_count) noexcept override {
   	print(" \n emit log");
+  	eos_evm::eth_log emit_log;
+  	emit_log.address = addr;
+  	for (size_t i = 0; i < topics_count; i++) {
+  		emit_log.topics.push_back(evmc_bytes32(topics[i]));
+  	}
+  	std::copy(data, data + data_size, std::back_inserter(emit_log.data));
+  	auto eos_evm_ptr = std::static_pointer_cast<eos_evm>(_contract);
+  	eos_evm_ptr->eth_emit_logs.push_back(emit_log);
   }
 };
 }  // namespace evmc

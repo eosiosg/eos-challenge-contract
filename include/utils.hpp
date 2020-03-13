@@ -31,6 +31,24 @@ std::string hex(bytes_view bs) {
   return str;
 }
 
+std::string BytesToHex(const std::vector<uint8_t> &input)
+{
+	static const char characters[] = "0123456789ABCDEF";
+
+	// Zeroes out the buffer unnecessarily, can't be avoided for std::string.
+	std::string ret(input.size() * 2, 0);
+
+	// Hack... Against the rules but avoids copying the whole buffer.
+	char *buf = const_cast<char *>(ret.data());
+
+	for (const auto &oneInputByte : input)
+	{
+		*buf++ = characters[oneInputByte >> 4];
+		*buf++ = characters[oneInputByte & 0x0F];
+	}
+	return ret;
+}
+
 std::vector<uint8_t> HexToBytes(const std::string &hex) {
   std::vector<uint8_t> bytes;
 

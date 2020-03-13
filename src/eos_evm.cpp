@@ -473,6 +473,13 @@ void eos_evm::print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx,
 	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
 	print(" \nr           : ");     printhex(trx.r_v.data(), trx.r_v.size());
 	print(" \ns           : ");     printhex(trx.s_v.data(), trx.s_v.size());
+	/// print eth emit logs
+	auto print_emit_logs = [](eth_log &emit_log){
+		print(" \naddress      : "); printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
+		print(" \ntopic        : ", emit_log.topics_to_string());
+		print(" \ndata         : "); printhex(emit_log.data.data(), emit_log.data.size());
+	};
+	print(" \nlog         : ");     std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
 }
 
 eth_addr_160 eos_evm::contract_destination(const eth_addr_160 &sender, const uint64_t nonce) {
