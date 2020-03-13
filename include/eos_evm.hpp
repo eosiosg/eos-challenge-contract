@@ -3,14 +3,17 @@
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
 #include <eosio/singleton.hpp>
+#include <eosio/binary_extension.hpp>
+
+#include <evmone/execution.hpp>
+#include <evmone/evmone.h>
+#include <evmc_status_code.hpp>
 #include <evmc/evmc.h>
 #include <evmc/evmc.hpp>
+
 #include <rlp.hpp>
 #include <ecc/uECC.h>
-#include <evmc/mocked_host.hpp>
 #include <utils.hpp>
-#include <evmc_status_code.hpp>
-#include <eosio/binary_extension.hpp>
 
 using namespace eosio;
 
@@ -153,14 +156,16 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 		typedef eosio::multi_index<"contract"_n, st_token_contract> tb_token_contract;
 
-		tb_account _account;
-		tb_account_code _account_code;
-		tb_global_nonce _nonce;
-		tb_token_contract _token_contract;
- 	private:
-		void assert_b(bool test, const char *msg);
+	public:
+		/// get contract address
+		eth_addr_160 contract_destination(const eth_addr_160 &sender, const uint64_t nonce);
 		uint64_t get_nonce();
 		void set_nonce();
+		/// get code
+		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
+		/// transfer eosio SYS token
+		void transfer_fund(const evmc_message &message, evmc_result &result);
+	private:
 		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		/// RLP
@@ -169,14 +174,11 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
 		/// keccak hash
 		evmc_uint256be gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx);
-		/// get code
-		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
-		/// vm execute
-		evmc_result vm_execute(std::vector<uint8_t> &code, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
+
 		/// print receipt
 		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
-		/// get contract address
-		eth_addr_160 contract_destination(const eth_addr_160 &sender, const uint64_t nonce);
+		/// message construct
+		evmc_message message_construct(eos_evm::rlp_decode_trx &trx);
 	};
 
 

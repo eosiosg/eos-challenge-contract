@@ -76,6 +76,20 @@ void to_evmc_uint256be(uint64_t val, evmc_uint256be *ret) {
   }
 }
 
+/** Converts the given evmc_uint256be into a uint64_t, if the value of
+    @val is more than 2^64 then return value will simply contain the
+    lower 8 bytes of @val
+*/
+uint64_t from_evmc_uint256be(const evmc_uint256be *val) {
+	const size_t offset = sizeof(evmc_uint256be) - sizeof(uint64_t);
+	uint64_t ret = 0;
+	for (size_t i = 0; i < sizeof(uint64_t); i++) {
+		ret = ret << 8;
+		ret |= val->bytes[i + offset];
+	}
+	return ret;
+}
+
 eosio::checksum256 evmc_uint256_to_checksum256(evmc_uint256be value) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
