@@ -24,10 +24,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		explicit eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
 
 		[[eosio::action]]
-		void rawtest(hex_code hexcode);
-		[[eosio::action]]
-		void verifysig(hex_code trx_code);
-		[[eosio::action]]
 		void rawtrxexe(hex_code trx_param, eth_addr_160 eth_address, eth_addr_160 sender);
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
@@ -39,10 +35,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void transfers(const name &from, const name &to, const asset &quantity, const std::string memo);
 		[[eosio::action]]
 		void withdraw(name eos_account, asset amount);
-		[[eosio::action]]
-		void setcode(eth_addr_160 eth_address, hex_code evm_code);
-		[[eosio::action]]
-		void setcontract(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
 		void settoken(const extended_symbol &contract);
 
@@ -79,6 +71,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			}
 
 			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
+
+			bool is_create_contract() { return to.empty(); };
 		};
 
 		struct eth_log {
@@ -158,14 +152,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			indexed_by<"byeth"_n, const_mem_fun<st_account_code, eth_addr_256 , &st_account_code::by_eth>>
 			> tb_account_code;
 
-		struct [[eosio::table("eos_evm")]] st_global_nonce {
-			uint64_t nonce;
-
-			uint64_t primary_key() const { return 0; };
-		};
-
-		typedef eosio::multi_index<"globalnonce"_n, st_global_nonce> tb_global_nonce;
-
 		struct [[eosio::table("eos_evm")]] st_token_contract {
 			uint64_t            id;
 			extended_symbol     contract;
@@ -177,8 +163,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		std::vector<eos_evm::eth_log> eth_emit_logs;
 
 	public:
-		uint64_t get_nonce();
-		void set_nonce();
+		uint64_t get_nonce(const evmc_message &msg);
+		void set_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
 		/// transfer eosio SYS token

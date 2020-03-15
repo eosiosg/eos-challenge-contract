@@ -43,20 +43,32 @@ public:
 		std::vector<uint8_t> create_code = std::vector<uint8_t>(msg.input_data, msg.input_data + msg.input_size);
 		msg.destination = eth_contract_addr;
 
-		result = vm_execute(create_code, message);
+		/// add account to table
+		eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+		auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
+		auto itr_eth_account = by_eth_account_index.find(eth_contract_256);
+		if (itr_eth_account != by_eth_account_index.end()) {
+			result.status_code = EVMC_FAILURE;
+		} else {
+			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
+			_account.emplace(_contract->get_self(), [&](auto &the_account) {
+				the_account.id = _account.available_primary_key();
+				the_account.eth_address = eth_contract_160;
+				the_account.nonce = 1;
+				the_account.eosio_balance = asset(0, _token_contract.begin()->contract.get_symbol());
+				the_account.eosio_account = name();
+			});
+		}
+
+		result.create_address = eth_contract_addr;
+
+		/// execute create code
+		result = vm_execute(create_code, msg);
 		/// get raw evm code from result output
 		std::vector<uint8_t> raw_evm_code;
 		std::copy_n(result.output_data, result.output_size, std::back_inserter(raw_evm_code));
 
 		if (result.status_code == EVMC_SUCCESS) {
-			/// add account to table
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
-			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
-			auto itr_eth_account = by_eth_account_index.find(eth_contract_256);
-			if (itr_eth_account == by_eth_account_index.end()) {
-				result.status_code = EVMC_FAILURE;
-			}
-
 			/// add code to table
 			eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
@@ -70,10 +82,6 @@ public:
 				the_account_code.bytecode = raw_evm_code;
 			});
 
-			if (result.release) {
-				result.release(&result);
-				result.release = nullptr;
-			}
 			result.create_address = eth_contract_addr;
 		}
 	}
@@ -176,9 +184,6 @@ public:
 
   /// Get the account's storage value at the given key (EVMC Host method).
   bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
-	  print(" \n lstore key");
-	  printhex(&key.bytes[0], sizeof(bytes32));
-	
     eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
 	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
@@ -369,11 +374,11 @@ public:
 	_result.release = nullptr;
 	if (msg.kind == EVMC_CREATE) {
 		/// get nonce
-		auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce();
+		auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce(msg);
 		/// create contract address
 		auto eth_contract_addr = contract_destination(msg.sender, nonce);
 		/// set nonce
-		std::static_pointer_cast<eos_evm>(_contract)->set_nonce();
+		std::static_pointer_cast<eos_evm>(_contract)->set_nonce(msg);
 		/// set contract
 		_result = create_contract(eth_contract_addr, msg);
 	} else {
