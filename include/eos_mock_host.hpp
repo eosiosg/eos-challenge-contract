@@ -30,17 +30,18 @@ public:
   /// The block header hash value to be returned by get_block_hash().
   bytes32 block_hash = {};
 
-  evmc_result create_contract(const eth_addr_160 &eth_contract_addr, const evmc_message &message) {
+  evmc_result create_contract(const address &eth_contract_addr, const evmc_message &message) {
 	eosio::check(message.kind == EVMC_CREATE, "message kind must be create");
 	eosio::check(message.input_size > 0, "message input size must be > 0");
 
-	evmc_address evmc_contract_address = checksum160_to_evmc_address(eth_contract_addr);
+	eth_addr_160 eth_contract_160 = evmc_address_to_checksum160(eth_contract_addr);
+	eth_addr_256 eth_contract_256 = evmc_address_to_checksum256(eth_contract_addr);
 	evmc_message msg = message;
 	std::vector<uint8_t> code;
 	evmc_result result;
-	if (!get_code_size(evmc_contract_address)) {
+	if (!get_code_size(eth_contract_addr)) {
 		std::vector<uint8_t> create_code = std::vector<uint8_t>(msg.input_data, msg.input_data + msg.input_size);
-		msg.destination = evmc_contract_address;
+		msg.destination = eth_contract_addr;
 
 		result = vm_execute(create_code, message);
 		/// get raw evm code from result output
@@ -51,7 +52,7 @@ public:
 			/// add account to table
 			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
-			auto itr_eth_account = by_eth_account_index.find(eth_addr_160_to_eth_addr_256(eth_contract_addr));
+			auto itr_eth_account = by_eth_account_index.find(eth_contract_256);
 			if (itr_eth_account == by_eth_account_index.end()) {
 				result.status_code = EVMC_FAILURE;
 			}
@@ -59,13 +60,13 @@ public:
 			/// add code to table
 			eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
-			auto itr_eth_code = by_eth_account_code_index.find(eth_addr_160_to_eth_addr_256(eth_contract_addr));
+			auto itr_eth_code = by_eth_account_code_index.find(eth_contract_256);
 			if (itr_eth_code != by_eth_account_code_index.end()) {
 				result.status_code = EVMC_FAILURE;
 			}
 			_account_code.emplace(_contract->get_self(), [&](auto &the_account_code){
 				the_account_code.id = _account_code.available_primary_key();
-				the_account_code.eth_address = eth_contract_addr;
+				the_account_code.eth_address = eth_contract_160;
 				the_account_code.bytecode = raw_evm_code;
 			});
 
@@ -73,11 +74,31 @@ public:
 				result.release(&result);
 				result.release = nullptr;
 			}
-			result.create_address = evmc_contract_address;
+			result.create_address = eth_contract_addr;
 		}
 	}
 	return result;
   }
+
+	/// get contract address
+	address contract_destination(const address &sender, const uint64_t nonce) {
+		RLPBuilder rlp_builder;
+		rlp_builder.start_list();
+		if (nonce == 0) {
+			std::vector<uint8_t> empty_nonce;
+			rlp_builder.add(empty_nonce);
+		}
+		rlp_builder.add(nonce);
+		rlp_builder.add(&sender.bytes[0], sizeof(address));
+		std::vector<uint8_t> eth_rlp = rlp_builder.build();
+
+		auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
+
+		address contract_address;
+		std::copy_n(&eth.bytes[0] + PADDING, 20, &contract_address.bytes[0]);
+
+		return contract_address;
+	}
 
   void transfer_fund(const evmc_message &message, evmc_result &result) {
 	/// get token symbol
@@ -349,24 +370,18 @@ public:
 	if (msg.kind == EVMC_CREATE) {
 		/// get nonce
 		auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce();
-		auto evmc_sender = msg.sender;
-		eth_addr_160 sender = evmc_address_to_checksum160(evmc_sender);
 		/// create contract address
-		auto eth_contract_addr = eos_evm_ptr->contract_destination(sender, nonce);
-		if (_result.status_code == EVMC_SUCCESS) {
-			/// set contract
-			evmc_result result = create_contract(eth_contract_addr, msg);
-			/// EVMC success set nonce
-			std::static_pointer_cast<eos_evm>(_contract)->set_nonce();
-		}
+		auto eth_contract_addr = contract_destination(msg.sender, nonce);
+		/// set nonce
+		std::static_pointer_cast<eos_evm>(_contract)->set_nonce();
+		/// set contract
+		_result = create_contract(eth_contract_addr, msg);
 	} else {
 		auto code = eos_evm_ptr->get_eth_code(evmc_address_to_checksum256(msg.destination));
 		_result = vm_execute(code, msg);
 		if (_result.status_code == EVMC_SUCCESS) {
 			/// transfer token
 			transfer_fund(msg, _result);
-			/// nonce ++
-			std::static_pointer_cast<eos_evm>(_contract)->set_nonce();
 		} else {
 			_result.status_code = EVMC_FAILURE;
 		}

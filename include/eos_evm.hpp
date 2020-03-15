@@ -42,7 +42,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void setcode(eth_addr_160 eth_address, hex_code evm_code);
 		[[eosio::action]]
-		void setcontract(const name &eos_creator, const hex_code &evm_code, const eth_addr_160 &sender, const uint64_t nonce);
+		void setcontract(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
 		void settoken(const extended_symbol &contract);
 
@@ -177,8 +177,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		std::vector<eos_evm::eth_log> eth_emit_logs;
 
 	public:
-		/// get contract address
-		eth_addr_160 contract_destination(const eth_addr_160 &sender, const uint64_t nonce);
 		uint64_t get_nonce();
 		void set_nonce();
 		/// get code
@@ -198,7 +196,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		/// print receipt
 		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
 		/// message construct
-		evmc_message message_construct(eos_evm::rlp_decode_trx &trx);
+		void message_construct(eos_evm::rlp_decode_trx &trx, evmc_message &msg);
 	};
 
 

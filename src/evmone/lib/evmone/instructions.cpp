@@ -4,6 +4,7 @@
 
 #include "analysis.hpp"
 #include <ethash/keccak.hpp>
+#include <eosio/eosio.hpp>
 
 namespace evmone
 {
@@ -424,6 +425,7 @@ const instruction* op_codesize(const instruction* instr, execution_state& state)
 const instruction* op_codecopy(const instruction* instr, execution_state& state) noexcept
 {
     // TODO: Similar to op_calldatacopy().
+	eosio::print(" \n op_codecopy");
 
     const auto mem_index = state.stack.pop();
     const auto input_index = state.stack.pop();
@@ -495,10 +497,12 @@ const instruction* op_sload(const instruction* instr, execution_state& state) no
 
 const instruction* op_sstore(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print("\n opstore ..... ");
     // TODO: Implement static mode violation in analysis.
     if (state.msg->flags & EVMC_STATIC)
         return state.exit(EVMC_STATIC_MODE_VIOLATION);
 
+	eosio::print("\n opstore 1..... ");
     if (state.rev >= EVMC_ISTANBUL)
     {
         const auto correction = state.current_block_cost - instr->arg.number;
@@ -507,6 +511,7 @@ const instruction* op_sstore(const instruction* instr, execution_state& state) n
             return state.exit(EVMC_OUT_OF_GAS);
     }
 
+	eosio::print("\n opstore 2..... ");
     const auto key = intx::be::store<evmc::bytes32>(state.stack.pop());
     const auto value = intx::be::store<evmc::bytes32>(state.stack.pop());
     auto status = state.host.set_storage(state.msg->destination, key, value);
@@ -514,6 +519,7 @@ const instruction* op_sstore(const instruction* instr, execution_state& state) n
     switch (status)
     {
     case EVMC_STORAGE_UNCHANGED:
+	    eosio::print("\n opstore 3..... ");
         if (state.rev >= EVMC_ISTANBUL)
             cost = 800;
         else if (state.rev == EVMC_CONSTANTINOPLE)
@@ -522,9 +528,11 @@ const instruction* op_sstore(const instruction* instr, execution_state& state) n
             cost = 5000;
         break;
     case EVMC_STORAGE_MODIFIED:
+	    eosio::print("\n opstore 4..... ");
         cost = 5000;
         break;
     case EVMC_STORAGE_MODIFIED_AGAIN:
+	    eosio::print("\n opstore 5..... ");
         if (state.rev >= EVMC_ISTANBUL)
             cost = 800;
         else if (state.rev == EVMC_CONSTANTINOPLE)
@@ -533,6 +541,7 @@ const instruction* op_sstore(const instruction* instr, execution_state& state) n
             cost = 5000;
         break;
     case EVMC_STORAGE_ADDED:
+	    eosio::print("\n opstore 6..... ");
         cost = 20000;
         break;
     case EVMC_STORAGE_DELETED:
@@ -777,6 +786,7 @@ const instruction* op_log(
         topics[i] = intx::be::store<evmc::bytes32>(state.stack.pop());
 
     const auto data = s != 0 ? &state.memory[o] : nullptr;
+    /// TODO: emit_log
     state.host.emit_log(state.msg->destination, data, s, topics.data(), num_topics);
     return ++instr;
 }
@@ -811,6 +821,7 @@ const instruction* op_return(const instruction*, execution_state& state) noexcep
 template <evmc_call_kind kind>
 const instruction* op_call(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print(" \n opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -933,6 +944,7 @@ const instruction* op_call(const instruction* instr, execution_state& state) noe
 
 const instruction* op_delegatecall(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print(" \n delegate opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -1002,6 +1014,7 @@ const instruction* op_delegatecall(const instruction* instr, execution_state& st
 
 const instruction* op_staticcall(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print(" \n static opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -1066,7 +1079,8 @@ const instruction* op_staticcall(const instruction* instr, execution_state& stat
 
 const instruction* op_create(const instruction* instr, execution_state& state) noexcept
 {
-    if (state.msg->flags & EVMC_STATIC)
+	eosio::print(" op create.. ");
+	if (state.msg->flags & EVMC_STATIC)
         return state.exit(EVMC_STATIC_MODE_VIOLATION);
 
     const auto arg = instr->arg;
@@ -1125,10 +1139,11 @@ const instruction* op_create(const instruction* instr, execution_state& state) n
 
 const instruction* op_create2(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print(" op create2.. ");
     if (state.msg->flags & EVMC_STATIC)
         return state.exit(EVMC_STATIC_MODE_VIOLATION);
 
-    const auto arg = instr->arg;
+	const auto arg = instr->arg;
     auto endowment = state.stack[0];
     auto init_code_offset = state.stack[1];
     auto init_code_size = state.stack[2];
