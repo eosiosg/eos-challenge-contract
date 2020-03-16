@@ -160,7 +160,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		} ;
 
 		typedef eosio::multi_index<"contract"_n, st_token_contract> tb_token_contract;
-		std::vector<eos_evm::eth_log> eth_emit_logs;
 
 	public:
 		uint64_t get_nonce(const evmc_message &msg);

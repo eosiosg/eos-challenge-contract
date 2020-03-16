@@ -30,6 +30,9 @@ public:
   /// The block header hash value to be returned by get_block_hash().
   bytes32 block_hash = {};
 
+  /// eth emit logs
+  std::vector<eos_evm::eth_log> eth_emit_logs = {};
+
   evmc_result create_contract(const address &eth_contract_addr, const evmc_message &message) {
 	eosio::check(message.kind == EVMC_CREATE, "message kind must be create");
 	eosio::check(message.input_size > 0, "message input size must be > 0");
@@ -421,15 +424,20 @@ public:
 				size_t data_size,
 				const bytes32 topics[],
 				size_t topics_count) noexcept override {
-  	print(" \n emit log");
   	eos_evm::eth_log emit_log;
   	emit_log.address = addr;
   	for (size_t i = 0; i < topics_count; i++) {
   		emit_log.topics.push_back(evmc_bytes32(topics[i]));
   	}
   	std::copy(data, data + data_size, std::back_inserter(emit_log.data));
-  	auto eos_evm_ptr = std::static_pointer_cast<eos_evm>(_contract);
-  	eos_evm_ptr->eth_emit_logs.push_back(emit_log);
+  	eth_emit_logs.push_back(emit_log);
+  	/// print eth emit logs
+  	auto print_emit_logs = [&](eos_evm::eth_log &emit_log){
+  		print(" \n address    : "); printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
+  		print(" \n topic      : ", emit_log.topics_to_string());
+  		print(" \n data       : "); printhex(emit_log.data.data(), emit_log.data.size());
+  	};
+	print(" \nemit log    : ");     std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
   }
 };
 }  // namespace evmc
