@@ -423,7 +423,8 @@ void eos_evm::print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx,
 	print(" \nto          : ");     printhex(trx.to.data(), trx.to.size());
 	print(" \nnonce       : ",      uint_from_vector(trx.nonce_v, "nonce"));
 	print(" \ngas_price   : ",      uint_from_vector(trx.gasPrice_v, "gasPrice_v"));
-	print(" \ngas         : ",      uint_from_vector(trx.gas_v, "gas"));
+	print(" \ngas_left    : ",      result.gas_left);
+	print(" \ngas_usage   : ",      uint_from_vector(trx.gas_v, "gas") - result.gas_left);
 	print(" \nvalue       : ",      uint_from_vector(trx.value, "value"));
 	print(" \ndata        : ");     printhex(trx.data.data(), trx.data.size());
 	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));

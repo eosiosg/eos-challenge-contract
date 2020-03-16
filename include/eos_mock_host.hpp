@@ -50,9 +50,7 @@ public:
 		eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 		auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 		auto itr_eth_account = by_eth_account_index.find(eth_contract_256);
-		if (itr_eth_account != by_eth_account_index.end()) {
-			result.status_code = EVMC_FAILURE;
-		} else {
+		if (itr_eth_account == by_eth_account_index.end()) {
 			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
 			_account.emplace(_contract->get_self(), [&](auto &the_account) {
 				the_account.id = _account.available_primary_key();
