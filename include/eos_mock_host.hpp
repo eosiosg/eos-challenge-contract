@@ -389,7 +389,9 @@ public:
 		_result = vm_execute(code, msg);
 		if (_result.status_code == EVMC_SUCCESS) {
 			/// transfer token
-			transfer_fund(msg, _result);
+			if (from_evmc_uint256be(&msg.value) > 0) {
+				transfer_fund(msg, _result);
+			}
 		} else {
 			_result.status_code = EVMC_FAILURE;
 		}
