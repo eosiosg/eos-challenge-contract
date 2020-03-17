@@ -55,7 +55,7 @@ public:
 			_account.emplace(_contract->get_self(), [&](auto &the_account) {
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = eth_contract_160;
-				the_account.nonce = 1;
+				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
 				the_account.eosio_balance = asset(0, _token_contract.begin()->contract.get_symbol());
 				the_account.eosio_account = name();
 			});
@@ -90,14 +90,15 @@ public:
   }
 
 	/// get contract address
-	address contract_destination(const address &sender, const uint64_t nonce) {
+	address contract_destination(const address &sender, const intx::uint256 &nonce) {
 		RLPBuilder rlp_builder;
 		rlp_builder.start_list();
 		if (nonce == 0) {
 			std::vector<uint8_t> empty_nonce;
 			rlp_builder.add(empty_nonce);
+		} else {
+			rlp_builder.add(nonce);
 		}
-		rlp_builder.add(nonce);
 		rlp_builder.add(&sender.bytes[0], sizeof(address));
 		std::vector<uint8_t> eth_rlp = rlp_builder.build();
 
@@ -142,7 +143,7 @@ public:
 			_account.emplace(_contract->get_self(), [&](auto &the_account) {
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = evmc_address_to_checksum160(message.destination);
-				the_account.nonce = 1;
+				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
 				the_account.eosio_balance = transfer_asset;
 				the_account.eosio_account = name();
 			});

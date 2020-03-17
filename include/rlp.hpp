@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include "evmc/evmc.h"
+#include <intx.hpp>
 
 class RLPBuilder {
  public:
@@ -15,6 +16,7 @@ class RLPBuilder {
   void add(const evmc_address &address);
   void add(const evmc_uint256be &uibe);
   void add(uint64_t number);
+  void add(const intx::uint256 &uint256);
   void start_list();
   void end_list();
   std::vector<uint8_t> &&build();

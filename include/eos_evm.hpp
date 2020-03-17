@@ -24,8 +24,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		explicit eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds);
 
 		[[eosio::action]]
-		void rawtrxexe(hex_code trx_param, eth_addr_160 eth_address, eth_addr_160 sender);
-		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
 		void create(name eos_account, const binary_extension<std::string> salt);
@@ -97,7 +95,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		struct [[eosio::table("eos_evm")]] st_account {
 			uint64_t           id;
 			eth_addr_160       eth_address;
-			uint64_t           nonce;
+			uint256_checksum   nonce;
 			asset              eosio_balance;
 			name               eosio_account; /// TODO need to change as optional
 
@@ -162,7 +160,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		typedef eosio::multi_index<"contract"_n, st_token_contract> tb_token_contract;
 
 	public:
-		uint64_t get_nonce(const evmc_message &msg);
+		intx::uint256 get_nonce(const evmc_message &msg);
+		uint256_checksum get_init_nonce();
 		void set_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);

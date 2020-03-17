@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <intx.hpp>
 
 using bytes = std::basic_string<uint8_t>;
 using bytes_view = std::basic_string_view<uint8_t>;
@@ -12,6 +13,7 @@ typedef eosio::checksum160   eth_addr_160;
 typedef eosio::checksum256   eth_addr_256;
 typedef std::vector<uint8_t> binary_code;
 typedef std::string          hex_code;
+typedef eosio::checksum256   uint256_checksum;
 
 #define PADDING 12
 #define ADDRSIZE 20
@@ -164,4 +166,19 @@ eth_addr_160 eth_addr_256_to_eth_addr_160(const eth_addr_256 &eth_address_256) {
     std::copy(eth_arr_256.begin()+PADDING, eth_arr_256.end(), eth_arr_160.begin());
     auto eth_address_160 = eosio::fixed_bytes<20>(eth_arr_160);
     return eth_address_160;
+}
+
+intx::uint256 uint256_from_vector(const uint8_t* begin, size_t size = 32) {
+	eosio::check(size <= 32, "size too large for put into uint256");
+
+	if (size == 32) {
+		return intx::be::unsafe::load<intx::uint256>(begin);
+	}
+	else {
+		uint8_t arr[32] = {};
+		const auto offset = 32 - size;
+		memcpy(arr + offset, begin, size);
+
+		return intx::be::load<intx::uint256>(arr);
+	}
 }

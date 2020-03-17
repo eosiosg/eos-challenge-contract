@@ -34,6 +34,32 @@ void RLPBuilder::add(const std::vector<uint8_t> &vec) {
   add_string_size(vec.size());
 }
 
+inline std::vector<uint8_t> uint256_to_byte(const intx::uint256 &n)
+{
+	std::vector<uint8_t> vec;
+	if (n != 0) {
+		uint8_t arr[32] = {};
+		intx::be::store(arr, n);
+
+		const auto n_bytes = intx::count_significant_words<uint8_t>(n);
+		vec.resize(n_bytes);
+
+		std::memcpy(vec.data(), arr + 32 - n_bytes, n_bytes);
+	}
+	return vec;
+}
+
+void RLPBuilder::add(const intx::uint256 &number) {
+	assert(!finished);
+	if (number <= 0x7f) {
+		buffer.push_back((uint8_t)number);
+	} else {
+		std::vector<uint8_t> number_vec = uint256_to_byte(number);
+		std::reverse_copy(number_vec.begin(), number_vec.end(), std::back_inserter(buffer));
+		add_string_size(number_vec.size());
+	}
+}
+
 void RLPBuilder::add(const uint8_t *data, size_t size) {
   assert(!finished);
   if (size == 1 && data[0] <= 0x7f) {
