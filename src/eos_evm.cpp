@@ -8,49 +8,67 @@ const evmc_address zero_address{{0}};
 
 eos_evm::eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds) { }
 
-void eos_evm::create(name eos_account,  const binary_extension<std::string> salt) {
+void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_address) {
 	require_auth(eos_account);
 	// check eosio account exist
 	tb_account _account(_self, _self.value);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
-	auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
-	eosio::check(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
 
-	auto salt_value = salt.has_value() ? salt.value() : "";
-
-    /// must associate EOSIO account
-    std::string eos_str = eos_account.to_string();
-
-    RLPBuilder eth_str;
-    eth_str.start_list();
-    eth_str.add(eos_str);
-    eth_str.add(salt_value);
-    std::vector<uint8_t> eth_rlp = eth_str.build();
-
-    auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
-    auto eth_bytes = eth.bytes;
-    // transfer uint8_t [32] to std::array
-    std::array<uint8_t, 20> eth_array;
-    eth_array.fill({});
-    std::copy_n(&eth_bytes[0] + PADDING, 20, eth_array.begin());
-    eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_array);
-    eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address_160);
-
-    auto by_eth_account_index = _account.get_index<name("byeth")>();
-    auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-    eosio::check(itr_eth_addr == by_eth_account_index.end(), "already have eth address");
+	auto eth_address_value = eth_address.has_value() ? eth_address.value() : "";
+	auto create_type = eth_address_value.size() == 40 ? account_type::CREATE_ETH_PURE_ADDRESS : account_type::CREATE_EOS_ASSOCIATE_ADDRESS;
 
 	tb_token_contract _token_contract(_self, _self.value);
 	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
 	auto itr_token_contract = _token_contract.begin();
 
-	_account.emplace(_self, [&](auto &the_account) {
-        the_account.id = _account.available_primary_key();
-        the_account.eth_address = eth_address_160;
-        the_account.nonce = get_init_nonce();
-        the_account.eosio_balance = asset(0, itr_token_contract->contract.get_symbol());
-        the_account.eosio_account = eos_account;
-    });
+	/// 1. eth_address == 160 bits eth account  set directly eth_address
+	if (create_type == account_type::CREATE_ETH_PURE_ADDRESS) {
+	    auto eth_address_arr = HexToBytes(eth_address_value);
+        eth_addr_256 eth_address_256 = vector_to_checksum256(eth_address_arr);
+        auto by_eth_account_index = _account.get_index<name("byeth")>();
+        auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+        eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
+
+        _account.emplace(_self, [&](auto &the_account) {
+            the_account.id = _account.available_primary_key();
+            the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
+	        the_account.nonce = get_init_nonce();
+	        the_account.balance = asset(0, itr_token_contract->contract.get_symbol());
+	        the_account.eosio_account = name();
+        });
+	} else {
+		/// 2. eth_address ！= 160 bits eth account,  must associate EOSIO account
+		auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
+		eosio::check(itr_eos_addr == by_eos_account_index.end(), "eos account already linked eth address");
+		std::string eos_str = eos_account.to_string();
+
+		RLPBuilder eth_str;
+		eth_str.start_list();
+		eth_str.add(eos_str);
+		eth_str.add(eth_address_value);
+		std::vector <uint8_t> eth_rlp = eth_str.build();
+
+		auto eth = ethash::keccak256(eth_rlp.data(), eth_rlp.size());
+		auto eth_bytes = eth.bytes;
+		// transfer uint8_t [32] to std::array
+		std::array<uint8_t, 20> eth_array;
+		eth_array.fill({});
+		std::copy_n(&eth_bytes[0] + PADDING, 20, eth_array.begin());
+		eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_array);
+		eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address_160);
+
+		auto by_eth_account_index = _account.get_index<name("byeth")>();
+		auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+		eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
+
+		_account.emplace(_self, [&](auto &the_account) {
+			the_account.id = _account.available_primary_key();
+			the_account.eth_address = eth_address_160;
+			the_account.nonce = get_init_nonce();
+			the_account.balance = asset(0, itr_token_contract->contract.get_symbol());
+			the_account.eosio_account = eos_account;
+		});
+	}
 }
 
 void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender) {
@@ -85,7 +103,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 
 	tb_account _account(_self, _self.value);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
-	if (!trx.is_r_s_zero()) {
+	if (!trx.is_r_or_s_zero()) {
         /// use eth signature
         /// Recover Address
         evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
@@ -138,30 +156,6 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	print_vm_receipt(result, trx, msg.sender);
 }
 
-void eos_evm::createeth(name eos_account,  const std::string &eth_address) {
-    require_auth(eos_account);
-	eosio::check(eth_address.size() == 40, "invalid length eth address");
-	auto eth_address_arr = HexToBytes(eth_address);
-	eth_addr_256 eth_address_256 = vector_to_checksum256(eth_address_arr);
-	tb_account _account(_self, _self.value);
-	auto by_eth_account_index = _account.get_index<name("byeth")>();
-	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-	eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
-
-	tb_token_contract _token_contract(_self, _self.value);
-	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
-	auto itr_token_contract = _token_contract.begin();
-
-	/// 2. eth_address == 160 bits eth account  set directly eth_address
-	_account.emplace(_self, [&](auto &the_account) {
-		the_account.id = _account.available_primary_key();
-		the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
-		the_account.nonce = get_init_nonce();
-		the_account.eosio_balance = asset(0, itr_token_contract->contract.get_symbol());
-		the_account.eosio_account = name();
-	});
-}
-
 void eos_evm::settoken(const extended_symbol &contract) {
 	tb_token_contract _token_contract(_self, _self.value);
 	auto itr_token_contract = _token_contract.begin();
@@ -202,7 +196,7 @@ void eos_evm::transfers(const name &from, const name &to, const asset &quantity,
 
     /// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.eosio_balance += quantity;
+		the_account.balance += quantity;
 	});
 }
 
@@ -218,7 +212,7 @@ void eos_evm::withdraw(name eos_account, asset quantity) {
 	eosio::check(itr_token_contract != _token_contract.end(), "must set token contract first");
 	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
 	/// check balance enough
-	eosio::check(itr_eos_from->eosio_balance >= quantity, "overdrawn balance");
+	eosio::check(itr_eos_from->balance >= quantity, "overdrawn balance");
 
 	action(
 			permission_level{_self, "active"_n},
@@ -228,7 +222,7 @@ void eos_evm::withdraw(name eos_account, asset quantity) {
 	).send();
 	/// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.eosio_balance -= quantity;
+		the_account.balance -= quantity;
 	});
 }
 

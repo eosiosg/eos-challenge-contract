@@ -56,7 +56,7 @@ public:
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = eth_contract_160;
 				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
-				the_account.eosio_balance = asset(0, _token_contract.begin()->contract.get_symbol());
+				the_account.balance = asset(0, _token_contract.begin()->contract.get_symbol());
 				the_account.eosio_account = name();
 			});
 		}
@@ -134,7 +134,7 @@ public:
 		/// sub sender balance
 		auto transfer_asset = eosio::asset(from_evmc_uint256be(&transfer_value), _token_contract.begin()->contract.get_symbol());
 		_account.modify(*itr_sender, eosio::same_payer, [&](auto &the_account){
-			the_account.eosio_balance -= transfer_asset;
+			the_account.balance -= transfer_asset;
 		});
 		auto itr_dest = by_eth_account_index.find(evmc_address_to_checksum256(message.destination));
 		/// TODO: to account exist create or not?
@@ -144,12 +144,12 @@ public:
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = evmc_address_to_checksum160(message.destination);
 				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
-				the_account.eosio_balance = transfer_asset;
+				the_account.balance = transfer_asset;
 				the_account.eosio_account = name();
 			});
 		} else {
 			_account.modify(*itr_dest, eosio::same_payer, [&](auto &the_account) {
-				the_account.eosio_balance += transfer_asset;
+				the_account.balance += transfer_asset;
 			});
 		}
 		result.status_code = EVMC_SUCCESS;
@@ -270,7 +270,7 @@ public:
 	  if (itr_eth_addr == by_eth_account_index.end()) {
 	  	return {};
 	  }
-	  auto balance_eosio = itr_eth_addr->eosio_balance.amount;
+	  auto balance_eosio = itr_eth_addr->balance.amount;
 
 	  uint256be balance;
 	  to_evmc_uint256be(balance_eosio, &balance);

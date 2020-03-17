@@ -5,13 +5,11 @@ cleos set contract bpa  ./eos_evm -p bpa
 cleos push action bpa settoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p bpa
 # create account
 cleos push action bpa create '[bpb, "aaaaaa"]' -p bpb
+cleos push action bpa create '[bpb, d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p bpb
 cleos push action bpa create '[bpc, "aaaaaa"]' -p bpc
+cleos push action bpa create '[bpc, 39944247c2edf660d86d57764b58d83b8eee9014]' -p bpc
 cleos push action bpa create '[bpd, "aaaaaa"]' -p bpd
-
-# update eth account to check signature
-cleos push action bpa createeth '[bpb, d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p bpb
-cleos push action bpa createeth '[bpc, 39944247c2edf660d86d57764b58d83b8eee9014]' -p bpc
-cleos push action bpa createeth '[bpd, e327e755438fbdf9e60891d9b752da10a38514d1]' -p bpd
+cleos push action bpa create '[bpd, e327e755438fbdf9e60891d9b752da10a38514d1]' -p bpd
 
 # ----------------------------------with nonce -------------------------------------
 # create contract

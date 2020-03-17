@@ -26,9 +26,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
-		void create(name eos_account, const binary_extension<std::string> salt);
-		[[eosio::action]]
-        void createeth(name eos_account, const std::string &eth_address);
+		void create(name eos_account, const binary_extension<std::string> eth_address);
 		[[eosio::on_notify("*::transfer")]]
 		void transfers(const name &from, const name &to, const asset &quantity, const std::string memo);
 		[[eosio::action]]
@@ -37,6 +35,12 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void settoken(const extended_symbol &contract);
 
 	public:
+
+		enum account_type {
+			CREATE_ETH_PURE_ADDRESS,
+			CREATE_EOS_ASSOCIATE_ADDRESS
+		};
+
 		struct rlp_decode_trx {
 			std::vector<uint8_t> nonce_v;
 			std::vector<uint8_t> gasPrice_v;
@@ -68,7 +72,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 				return actual_v;
 			}
 
-			bool is_r_s_zero() {return r_v.empty() || s_v.empty();};
+			bool is_r_or_s_zero() {return r_v.empty() || s_v.empty();};
 
 			bool is_create_contract() { return to.empty(); };
 		};
@@ -96,7 +100,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			uint64_t           id;
 			eth_addr_160       eth_address;
 			uint256_checksum   nonce;
-			asset              eosio_balance;
+			asset              balance;
 			name               eosio_account; /// TODO need to change as optional
 
 			uint64_t primary_key() const { return id; };
