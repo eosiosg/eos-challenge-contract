@@ -11,7 +11,7 @@ add_library(ethash STATIC
         )
 
 add_library(keccak STATIC
-        lib/keccak/keccak.c lib/keccak/keccakf1600.c lib/keccak/keccakf800.c)
+        lib/ethash/keccak.c lib/ethash/keccakf1600.c lib/ethash/keccakf800.c)
 
 target_include_directories(ethash
         PUBLIC
@@ -28,3 +28,4 @@ target_include_directories(keccak
         )
 
 target_compile_definitions(ethash PRIVATE HAVE_CONFIG_H=1)
+
