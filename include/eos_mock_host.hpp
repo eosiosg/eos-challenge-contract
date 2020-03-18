@@ -176,7 +176,7 @@ public:
   /// Returns true if an account exists (EVMC Host method).
   bool account_exists(const address &addr) const noexcept override {
 	  print(" \n account exists");
-	
+
 	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
 	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
@@ -192,18 +192,18 @@ public:
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
 	if (itr_eth_addr == by_eth_account_index.end()) return {};
 
-	eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
-	auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+	eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+	auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
 	/// key to checksum256
 	std::array<uint8_t, 32> key_array;
 	std::copy_n(&key.bytes[0], sizeof(bytes32), key_array.begin());
 	eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
-	auto itr_eth_addr_store = by_eth_account_storage_index.find(key_eosio);
-	if (itr_eth_addr_store != by_eth_account_storage_index.end()) {
+	auto itr_eth_addr_state = by_eth_account_state_index.find(key_eosio);
+	if (itr_eth_addr_state != by_eth_account_state_index.end()) {
 		bytes32 value{};
-		auto storage_value = itr_eth_addr_store->storage_val;
-		auto storage_value_array = storage_value.extract_as_byte_array();
-		std::copy(storage_value_array.begin(), storage_value_array.end(), &value.bytes[0]);
+		auto state_value = itr_eth_addr_state->value;
+		auto state_value_array = state_value.extract_as_byte_array();
+		std::copy(state_value_array.begin(), state_value_array.end(), &value.bytes[0]);
 		return value;
 	}
 	return {};
@@ -223,35 +223,35 @@ public:
 		return EVMC_STORAGE_UNCHANGED;
 	eosio::print("\n setting storage...");
 
-	  eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
-	  auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
+	  eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+	  auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
 	  /// key to checksum256
 	  std::array<uint8_t, 32> key_array;
 	  std::copy(&key.bytes[0], &key.bytes[0] + sizeof(bytes32), key_array.begin());
 	  eosio::checksum256 key_eosio = eosio::fixed_bytes<32>(key_array);
-	  auto itr_eth_addr_store = by_eth_account_storage_index.find(key_eosio);
+	  auto itr_eth_addr_state = by_eth_account_state_index.find(key_eosio);
 	  /// value to checksum256
 	  std::array<uint8_t, 32> new_value_array;
 	  std::copy(&value.bytes[0], &value.bytes[0] + 32, new_value_array.begin());
 	  eosio::checksum256 new_value_eosio = eosio::fixed_bytes<32>(new_value_array);
 
 	  evmc_storage_status status{};
-	  if (itr_eth_addr_store == by_eth_account_storage_index.end()) {
-	  	_account_store.emplace(_contract->get_self(), [&](auto &the_store){
-			the_store.id = _account_store.available_primary_key();
-			the_store.storage_key = key_eosio;
-	  		the_store.storage_val = new_value_eosio;
-	  	});
-	  	status = EVMC_STORAGE_ADDED;
-	  	return  status;
+	  if (itr_eth_addr_state == by_eth_account_state_index.end()) {
+		_account_state.emplace(_contract->get_self(), [&](auto &the_state){
+			the_state.id = _account_state.available_primary_key();
+			the_state.key = key_eosio;
+			the_state.value = new_value_eosio;
+		});
+		status = EVMC_STORAGE_ADDED;
+		return  status;
 	  } else {
-		  auto old_value = itr_eth_addr_store->storage_val;
+		  auto old_value = itr_eth_addr_state->value;
 		  if (old_value == new_value_eosio) {
 			  status = EVMC_STORAGE_UNCHANGED;
 			  return status;
 		  }
-		  _account_store.modify(*itr_eth_addr_store, eosio::same_payer, [&](auto &the_store){
-			  the_store.storage_val = new_value_eosio;
+		  _account_state.modify(*itr_eth_addr_state, eosio::same_payer, [&](auto &the_state){
+			  the_state.value = new_value_eosio;
 		  });
 		  status = EVMC_STORAGE_MODIFIED;
 		  return status;
@@ -354,13 +354,13 @@ public:
       if (itr_eth_code != by_eth_account_code_index.end()) {
           by_eth_account_code_index.erase(itr_eth_code);
       }
-      /// 3. remove account storage record
-      eos_evm::tb_account_storage _account_store(_contract->get_self(), itr_eth_addr->id);
-      auto by_eth_account_storage_index = _account_store.get_index<eosio::name("bystorekey")>();
-      auto itr_eth_addr_store = by_eth_account_storage_index.begin();
-      while(itr_eth_addr_store != by_eth_account_storage_index.end()) {
+      /// 3. remove account state record
+      eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+      auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
+      auto itr_eth_addr_state = by_eth_account_state_index.begin();
+      while(itr_eth_addr_state != by_eth_account_state_index.end()) {
           /// TODO: if have large amount of data need to batch delete
-          by_eth_account_storage_index.erase(itr_eth_addr_store);
+          by_eth_account_state_index.erase(itr_eth_addr_state);
       }
   }
 

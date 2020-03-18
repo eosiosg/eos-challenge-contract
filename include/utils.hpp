@@ -9,11 +9,12 @@
 
 using bytes = std::basic_string<uint8_t>;
 using bytes_view = std::basic_string_view<uint8_t>;
-typedef eosio::checksum160   eth_addr_160;
-typedef eosio::checksum256   eth_addr_256;
-typedef std::vector<uint8_t> binary_code;
-typedef std::string          hex_code;
-typedef eosio::checksum256   uint256_checksum;
+using eth_addr_160 = eosio::checksum160;
+using eth_addr_256 = eosio::checksum256;
+using binary_code = std::vector<uint8_t>;
+using hex_code = std::string;
+using eosio_uint256 = eosio::checksum256;
+using sha256 = eosio::checksum256;
 
 #define PADDING 12
 #define ADDRSIZE 20

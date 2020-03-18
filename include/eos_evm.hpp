@@ -41,6 +41,11 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			CREATE_EOS_ASSOCIATE_ADDRESS
 		};
 
+		enum raw_verify_sig_type {
+			ETH_SIG_VERIFY,
+			EOS_SIG_VERIFY
+		};
+
 		struct rlp_decode_trx {
 			std::vector<uint8_t> nonce_v;
 			std::vector<uint8_t> gasPrice_v;
@@ -99,7 +104,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		struct [[eosio::table("eos_evm")]] st_account {
 			uint64_t           id;
 			eth_addr_160       eth_address;
-			uint256_checksum   nonce;
+			eosio_uint256      nonce;
 			asset              balance;
 			name               eosio_account; /// TODO need to change as optional
 
@@ -120,26 +125,16 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 		struct [[eosio::table("eos_evm")]] st_account_state {
 		    uint64_t           id;
-			eosio::checksum256 key;
-			eosio::checksum256 value;
+			eosio_uint256      key;
+			eosio_uint256      value;
 
 			uint64_t primary_key() const { return id; };
+			eosio_uint256 by_state_key() const { return key; };
 		};
 
-		typedef eosio::multi_index<"accountstate"_n, st_account_state> tb_account_state;
-
-		struct [[eosio::table("eos_evm")]] st_account_storage {
-			uint64_t             id;
-			eosio::checksum256   storage_key;
-			eosio::checksum256   storage_val;
-
-			uint64_t primary_key() const { return id; };
-			eosio::checksum256 by_storage_key() const { return storage_key; };
-		};
-
-		typedef eosio::multi_index<"accountstore"_n, st_account_storage,
-			indexed_by<"bystorekey"_n, const_mem_fun<st_account_storage, eosio::checksum256, &st_account_storage::by_storage_key>>
-		> tb_account_storage;
+		typedef eosio::multi_index<"accountstate"_n, st_account_state,
+			indexed_by<"bystatekey"_n, const_mem_fun<st_account_state, eosio_uint256, &st_account_state::by_state_key>>
+		> tb_account_state;
 
 		struct [[eosio::table("eos_evm")]] st_account_code {
 		  	uint64_t             id;
@@ -165,7 +160,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 	public:
 		intx::uint256 get_nonce(const evmc_message &msg);
-		uint256_checksum get_init_nonce();
+		eosio_uint256 get_init_nonce();
 		void set_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
