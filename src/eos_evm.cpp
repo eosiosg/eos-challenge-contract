@@ -103,7 +103,8 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 
 	tb_account _account(_self, _self.value);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
-	if (!trx.is_r_or_s_zero()) {
+	auto trx_type = trx.is_r_or_s_zero() ? raw_verify_sig_type::EOS_SIG_VERIFY : raw_verify_sig_type::ETH_SIG_VERIFY;
+	if (trx_type == raw_verify_sig_type::ETH_SIG_VERIFY) {
         /// use eth signature
         /// Recover Address
         evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
