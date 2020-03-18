@@ -28,7 +28,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void create(name eos_account, const binary_extension<std::string> eth_address);
 		[[eosio::on_notify("*::transfer")]]
-		void transfers(const name &from, const name &to, const asset &quantity, const std::string memo);
+		void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
 		[[eosio::action]]
 		void withdraw(name eos_account, asset amount);
 		[[eosio::action]]

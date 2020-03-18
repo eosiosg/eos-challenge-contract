@@ -166,7 +166,7 @@ void eos_evm::linktoken(const extended_symbol &contract) {
 	});
 }
 
-void eos_evm::transfers(const name &from, const name &to, const asset &quantity, const std::string memo) {
+void eos_evm::ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo) {
 	require_auth(from);
 	if (from == _self || to != _self) {
 		return;
