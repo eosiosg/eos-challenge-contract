@@ -32,7 +32,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void withdraw(name eos_account, asset amount);
 		[[eosio::action]]
-		void settoken(const extended_symbol &contract);
+		void linktoken(const extended_symbol &contract);
 
 	public:
 

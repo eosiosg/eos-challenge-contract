@@ -137,7 +137,6 @@ public:
 			the_account.balance -= transfer_asset;
 		});
 		auto itr_dest = by_eth_account_index.find(evmc_address_to_checksum256(message.destination));
-		/// TODO: to account exist create or not?
 		/// add destination balance
 		if (itr_dest == by_eth_account_index.end()) {
 			_account.emplace(_contract->get_self(), [&](auto &the_account) {

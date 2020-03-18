@@ -18,7 +18,7 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_
 	auto create_type = eth_address_value.size() == 40 ? account_type::CREATE_ETH_PURE_ADDRESS : account_type::CREATE_EOS_ASSOCIATE_ADDRESS;
 
 	tb_token_contract _token_contract(_self, _self.value);
-	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
 	auto itr_token_contract = _token_contract.begin();
 
 	/// 1. eth_address == 160 bits eth account  set directly eth_address
@@ -156,19 +156,14 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	print_vm_receipt(result, trx, msg.sender);
 }
 
-void eos_evm::settoken(const extended_symbol &contract) {
+void eos_evm::linktoken(const extended_symbol &contract) {
 	tb_token_contract _token_contract(_self, _self.value);
 	auto itr_token_contract = _token_contract.begin();
-	if (itr_token_contract == _token_contract.end()) {
-		_token_contract.emplace(_self, [&](auto &the_contract) {
-			the_contract.id = 0;
-			the_contract.contract = contract;
-		});
-	} else {
-		_token_contract.modify(itr_token_contract, eosio::same_payer, [&](auto &the_contract) {
-			the_contract.contract = contract;
-		});
-	}
+	eosio::check(itr_token_contract == _token_contract.end(), "must link token once");
+	_token_contract.emplace(_self, [&](auto &the_contract) {
+		the_contract.id = 0;
+		the_contract.contract = contract;
+	});
 }
 
 void eos_evm::transfers(const name &from, const name &to, const asset &quantity, const std::string memo) {
@@ -182,7 +177,7 @@ void eos_evm::transfers(const name &from, const name &to, const asset &quantity,
 		return;
 	}
 	tb_token_contract _token_contract(_self, _self.value);
-	eosio::check(_token_contract.begin() != _token_contract.end(), "must set token contract first");
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
 	auto itr_token_contract = _token_contract.begin();
 	eosio::check(get_first_receiver() == itr_token_contract->contract.get_contract(), "not support token contract");
 	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
@@ -209,7 +204,7 @@ void eos_evm::withdraw(name eos_account, asset quantity) {
 
 	tb_token_contract _token_contract(_self, _self.value);
 	auto itr_token_contract = _token_contract.begin();
-	eosio::check(itr_token_contract != _token_contract.end(), "must set token contract first");
+	eosio::check(itr_token_contract != _token_contract.end(), "must link token contract first");
 	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
 	/// check balance enough
 	eosio::check(itr_eos_from->balance >= quantity, "overdrawn balance");
