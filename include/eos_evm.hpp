@@ -104,8 +104,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		struct [[eosio::table("eos_evm")]] st_account {
 			uint64_t           id;
 			eth_addr_160       eth_address;
-			eosio_uint256      nonce;
-			asset              balance;
+			uint256_t          nonce;
+			uint256_t          balance;
 			name               eosio_account; /// TODO need to change as optional
 
 			uint64_t primary_key() const { return id; };
@@ -125,15 +125,15 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 		struct [[eosio::table("eos_evm")]] st_account_state {
 		    uint64_t           id;
-			eosio_uint256      key;
-			eosio_uint256      value;
+			uint256_t          key;
+			uint256_t          value;
 
 			uint64_t primary_key() const { return id; };
-			eosio_uint256 by_state_key() const { return key; };
+			uint256_t by_state_key() const { return key; };
 		};
 
 		typedef eosio::multi_index<"accountstate"_n, st_account_state,
-			indexed_by<"bystatekey"_n, const_mem_fun<st_account_state, eosio_uint256, &st_account_state::by_state_key>>
+			indexed_by<"bystatekey"_n, const_mem_fun<st_account_state, uint256_t, &st_account_state::by_state_key>>
 		> tb_account_state;
 
 		struct [[eosio::table("eos_evm")]] st_account_code {
@@ -160,12 +160,17 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 	public:
 		intx::uint256 get_nonce(const evmc_message &msg);
-		eosio_uint256 get_init_nonce();
+		uint256_t get_init_nonce();
+		uint256_t get_init_balance();
 		void set_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
 		/// transfer eosio SYS token
 		void transfer_fund(const evmc_message &message, evmc_result &result);
+		/// add balance
+		void add_balance(const name& eos_account, const asset& quantity);
+		/// sub balance
+		void sub_balance(const name& eos_account, const asset& quantity);
 	private:
 		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);

@@ -2,7 +2,7 @@
 
 cleos set contract bpa  ./eos_evm -p bpa
 
-cleos push action bpa settoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p bpa
+cleos push action bpa linktoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p bpa
 # create account
 cleos push action bpa create '[bpb, "aaaaaa"]' -p bpb
 cleos push action bpa create '[bpb, d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p bpb

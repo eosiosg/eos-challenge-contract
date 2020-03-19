@@ -13,8 +13,7 @@ using eth_addr_160 = eosio::checksum160;
 using eth_addr_256 = eosio::checksum256;
 using binary_code = std::vector<uint8_t>;
 using hex_code = std::string;
-using eosio_uint256 = eosio::checksum256;
-using sha256 = eosio::checksum256;
+using uint256_t = eosio::checksum256;
 
 #define PADDING 12
 #define ADDRSIZE 20
@@ -97,53 +96,47 @@ void to_evmc_uint256be(uint64_t val, evmc_uint256be *ret) {
   }
 }
 
-/** Converts the given evmc_uint256be into a uint64_t, if the value of
-    @val is more than 2^64 then return value will simply contain the
-    lower 8 bytes of @val
-*/
-uint64_t from_evmc_uint256be(const evmc_uint256be *val) {
-	const size_t offset = sizeof(evmc_uint256be) - sizeof(uint64_t);
-	uint64_t ret = 0;
-	for (size_t i = 0; i < sizeof(uint64_t); i++) {
-		ret = ret << 8;
-		ret |= val->bytes[i + offset];
-	}
-	return ret;
-}
-
-eosio::checksum256 evmc_uint256_to_checksum256(evmc_uint256be value) {
+/// evmc
+eosio::checksum256 evmc_uint256_to_checksum256(evmc::uint256be value) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
-	std::copy_n(&value.bytes[0], sizeof(evmc_uint256be), eth_address_arr.begin());
+	std::copy_n(&value.bytes[0], sizeof(evmc::uint256be), eth_address_arr.begin());
 	eth_addr_256 eth_address = eosio::fixed_bytes<32>(eth_address_arr);
 	return eth_address;
 }
 
-eosio::checksum256 evmc_address_to_checksum256(const evmc_address &address) {
+evmc::uint256be checksum256_to_evmc_uint256(const eosio::checksum256 &value) {
+	evmc::uint256be evmc_value;
+	auto value_arr = value.extract_as_byte_array();
+	std::copy(value_arr.begin(), value_arr.end(), &evmc_value.bytes[0]);
+	return evmc_value;
+}
+
+eosio::checksum256 evmc_address_to_checksum256(const evmc::address &address) {
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
-	std::copy_n(&address.bytes[0], sizeof(evmc_address), eth_address_arr.begin()+PADDING);
+	std::copy_n(&address.bytes[0], sizeof(evmc::address), eth_address_arr.begin()+PADDING);
 	eth_addr_256 eth_address_256 = eosio::fixed_bytes<32>(eth_address_arr);
 	return eth_address_256;
 }
 
-eosio::checksum160 evmc_address_to_checksum160(const evmc_address &address) {
+eosio::checksum160 evmc_address_to_checksum160(const evmc::address &address) {
 	std::array<uint8_t, 20> eth_address_arr;
 	eth_address_arr.fill({});
-	std::copy_n(&address.bytes[0], sizeof(evmc_address), eth_address_arr.begin());
+	std::copy_n(&address.bytes[0], sizeof(evmc::address), eth_address_arr.begin());
 	eth_addr_160 eth_address_160 = eosio::fixed_bytes<20>(eth_address_arr);
 	return eth_address_160;
 }
 
-evmc_address checksum160_to_evmc_address(const eth_addr_160 &address) {
-	evmc_address evmc_address;
+evmc::address checksum160_to_evmc_address(const eth_addr_160 &address) {
+	evmc::address evmc_address;
 	auto address_arr_160 = address.extract_as_byte_array();
 	std::copy(address_arr_160.begin(), address_arr_160.end(), &evmc_address.bytes[0]);
 	return evmc_address;
 }
 
 eosio::checksum256 vector_to_checksum256(std::vector<uint8_t> &address) {
-	eosio::check(address.size() == sizeof(evmc_address), "address must be 20bytes array");
+	eosio::check(address.size() == sizeof(evmc::address), "address must be 20bytes array");
 	std::array<uint8_t, 32> eth_address_arr;
 	eth_address_arr.fill({});
 	std::copy(address.begin(), address.end(), eth_address_arr.begin()+PADDING);
@@ -182,4 +175,26 @@ intx::uint256 uint256_from_vector(const uint8_t* begin, size_t size = 32) {
 
 		return intx::be::load<intx::uint256>(arr);
 	}
+}
+
+intx::uint256 asset_to_uint256(const eosio::asset &quantity, const uint8_t &sym_precision) {
+	uint64_t amount = quantity.amount;
+	/**
+	 * if sym_precision = 4
+	 * amount of asset(1.0000 SYS) = 10000
+	 * 1 SYS = 10 ^ 18 wei.
+	 * transit asset amount left shift amount << (18 - sym_precision) * 8 to uint256
+	 * */
+	intx::uint256 amount_256 = intx::narrow_cast<intx::uint256>(amount);
+	amount_256 = amount_256 << (18 - sym_precision) * 8;
+	return amount_256;
+}
+
+/// intx::uint256 to eosio::checksum256
+uint256_t intx_uint256_to_uint256_t(const intx::uint256 &value) {
+	evmc::bytes32 evmc_value = intx::be::store<evmc::bytes32>(value);
+	std::array<uint8_t, 32> value_array;
+	value_array.fill({});
+	std::copy(&evmc_value.bytes[0], &evmc_value.bytes[0] + sizeof(evmc::bytes32), value_array.data());
+	return eosio::fixed_bytes<32>(value_array);
 }

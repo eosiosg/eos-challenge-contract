@@ -33,7 +33,7 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_
             the_account.id = _account.available_primary_key();
             the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
 	        the_account.nonce = get_init_nonce();
-	        the_account.balance = asset(0, itr_token_contract->contract.get_symbol());
+	        the_account.balance = get_init_balance();
 	        the_account.eosio_account = name();
         });
 	} else {
@@ -65,7 +65,7 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_
 			the_account.id = _account.available_primary_key();
 			the_account.eth_address = eth_address_160;
 			the_account.nonce = get_init_nonce();
-			the_account.balance = asset(0, itr_token_contract->contract.get_symbol());
+			the_account.balance = get_init_balance();
 			the_account.eosio_account = eos_account;
 		});
 	}
@@ -78,17 +78,6 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	/// construct evmc_message
 	evmc_message msg{};
 	message_construct(trx, msg);
-
-	std::vector<uint8_t> code;
-	/// is create contract
-	if (!trx.is_create_contract()) {
-		msg.kind = EVMC_CALL;
-		/// get eth code
-		auto eth_dest = vector_to_checksum256(trx.to);
-		code = get_eth_code(eth_dest);
-	} else {
-		msg.kind = EVMC_CREATE;
-	}
 
 	/// encode raw trx_code
 	std::vector<uint8_t> unsigned_trx = RLPEncodeTrx(trx);
@@ -115,8 +104,8 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 		eosio::check(itr_eth_addr != by_eth_account_index.end(), "recover sender not exist in account table");
 	} else {
 	    /// use eos signature
-	    msg.sender = checksum160_to_evmc_address(sender.value());
 		eosio::check(sender.has_value(), "sender param can not be none"); /// sender exist;
+	    msg.sender = checksum160_to_evmc_address(sender.value());
 		eosio::checksum256 sender_checksum_256 = evmc_address_to_checksum256(msg.sender);
 		auto itr_eth_addr = by_eth_account_index.find(sender_checksum_256);
 		/// sender must exist
@@ -126,26 +115,35 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 		/// assert EOS associate account signature
 		require_auth(itr_eth_addr->eosio_account);
 	}
-
 	/// assert nonce
 	auto nonce = get_nonce(msg);
 	eosio::check(nonce == uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size()), "nonce mismatch");
 
 	evmc_result result;
 	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-	if (msg.kind == EVMC_CALL) {
-		/// execute code
+	std::vector<uint8_t> code;
+	if (!trx.is_create_contract() && trx.data.size()) {
+		/// message_call
+		msg.kind = EVMC_CALL;
+		/// get eth code
+		auto eth_dest = vector_to_checksum256(trx.to);
+		code = get_eth_code(eth_dest);
 		result = host.vm_execute(code, msg);
-	} else {
+	} else if (trx.is_create_contract()) {
+		/// is create contract
+		msg.kind = EVMC_CREATE;
 		/// create a new eth address contract
 		auto eth_contract_address = host.contract_destination(msg.sender, nonce);
 		result = host.create_contract(eth_contract_address, msg);
+	} else {
+		/// transfer value
+		result.status_code = EVMC_SUCCESS;
 	}
 
-	/// if result == EVMC_SUCCESS, nonce + 1;
+	/// if result == EVMC_SUCCESS, transfer value and nonce + 1;
 	if (result.status_code == EVMC_SUCCESS) {
 		/// transfer value
-		uint64_t transfer_val = from_evmc_uint256be(&msg.value);
+		auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
 		/// transfer asset
 		if (transfer_val > 0) {
 			host.transfer_fund(msg, result);
@@ -177,38 +175,20 @@ void eos_evm::ontransfer(const name &from, const name &to, const asset &quantity
 	    from == "eosio.saving"_n || from == "eosio.stake"_n || from == "eosio.vpay"_n) {
 		return;
 	}
-	tb_token_contract _token_contract(_self, _self.value);
-	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
-	auto itr_token_contract = _token_contract.begin();
-	eosio::check(get_first_receiver() == itr_token_contract->contract.get_contract(), "not support token contract");
-	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
-	eosio::check(quantity.amount > 0, "cannot transfer negative balance");
-
-	tb_account _account(_self, _self.value);
-	auto by_eos_account_index = _account.get_index<name("byeos")>();
-	auto itr_eos_from = by_eos_account_index.find(from.value);
-	eosio::check(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
-    eosio::check(itr_eos_from->eosio_account != name(), "no associate eosio account");
-
-    /// update account table token balance
-	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.balance += quantity;
-	});
+	add_balance(from, quantity);
 }
 
+/**
+ * if asset precision is 4. ETH wei precision is 18.
+ * the minimum withdraw amount is 0.0001 SYS = 10 ^ (18 - 4) wei
+ * */
 void eos_evm::withdraw(name eos_account, asset quantity) {
 	require_auth(eos_account);
-	tb_account _account(_self, _self.value);
-	auto by_eos_account_index = _account.get_index<name("byeos")>();
-	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
-	eosio::check(itr_eos_from != by_eos_account_index.end(), "no such associate eosio account");
 
 	tb_token_contract _token_contract(_self, _self.value);
 	auto itr_token_contract = _token_contract.begin();
-	eosio::check(itr_token_contract != _token_contract.end(), "must link token contract first");
-	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
-	/// check balance enough
-	eosio::check(itr_eos_from->balance >= quantity, "overdrawn balance");
+
+	sub_balance(eos_account, quantity);
 
 	action(
 			permission_level{_self, "active"_n},
@@ -216,10 +196,6 @@ void eos_evm::withdraw(name eos_account, asset quantity) {
 			"transfer"_n,
 			std::make_tuple(_self, eos_account, quantity, std::string(""))
 	).send();
-	/// update account table token balance
-	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		the_account.balance -= quantity;
-	});
 }
 
 evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s) {
@@ -283,7 +259,8 @@ void eos_evm::message_construct(eos_evm::rlp_decode_trx &trx, evmc_message &msg)
 	std::copy(trx.to.begin(), trx.to.end(), &msg.destination.bytes[0]);;
 	msg.input_data = trx.data.data();
 	msg.input_size = trx.data.size();
-	std::copy(trx.value.begin(), trx.value.end(), &msg.value.bytes[0]);
+	auto value_256 = uint256_from_vector(trx.value.data(), trx.value.size());
+	msg.value = intx::be::store<evmc_uint256be>(value_256);
 	uint64_t gas = uint_from_vector(trx.gas_v, "start gas");
 	msg.gas = gas;
 }
@@ -297,7 +274,7 @@ intx::uint256 eos_evm::get_nonce(const evmc_message &msg) {
 	return intx::be::unsafe::load<intx::uint256>(itr_eth_addr->nonce.extract_as_byte_array().data());
 }
 
-eosio_uint256 eos_evm::get_init_nonce() {
+uint256_t eos_evm::get_init_nonce() {
 	std::array<uint8_t, 32> init_nonce;
 	init_nonce.fill({});
 	init_nonce[init_nonce.size() - 1] = 0x01;
@@ -318,6 +295,62 @@ void eos_evm::set_nonce(const evmc_message &msg) {
 		nonce_arr.fill({});
 		std::copy(&evmc_nonce_256.bytes[0], &evmc_nonce_256.bytes[0] + sizeof(evmc_bytes32), nonce_arr.data());
 		the_account.nonce = fixed_bytes<32>(nonce_arr);
+	});
+}
+
+/// init balance
+uint256_t eos_evm::get_init_balance() {
+	std::array<uint8_t, 32> init_balance;
+	init_balance.fill({});
+	return fixed_bytes<32>(init_balance);
+}
+
+/// add balance
+void eos_evm::add_balance(const name& eos_account, const asset& quantity) {
+	tb_token_contract _token_contract(_self, _self.value);
+	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
+	auto itr_token_contract = _token_contract.begin();
+	auto sym_precision = itr_token_contract->contract.get_symbol().precision();
+	eosio::check(get_first_receiver() == itr_token_contract->contract.get_contract(), "not support token contract");
+	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
+	eosio::check(quantity.amount > 0, "cannot transfer negative balance");
+
+	tb_account _account(_self, _self.value);
+	auto by_eos_account_index = _account.get_index<name("byeos")>();
+	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
+	eosio::check(itr_eos_from != by_eos_account_index.end(), "no such eosio account");
+	eosio::check(itr_eos_from->eosio_account != name(), "no associate eosio account");
+
+	auto amount_256 = asset_to_uint256(quantity, sym_precision);
+	/// update account table token balance
+	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance + amount_256;
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
+	});
+}
+/// sub balance
+void eos_evm::sub_balance(const name& eos_account, const asset& quantity) {
+	tb_account _account(_self, _self.value);
+	auto by_eos_account_index = _account.get_index<name("byeos")>();
+	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
+	eosio::check(itr_eos_from != by_eos_account_index.end(), "no such associate eosio account");
+
+	tb_token_contract _token_contract(_self, _self.value);
+	auto itr_token_contract = _token_contract.begin();
+	auto sym_precision = itr_token_contract->contract.get_symbol().precision();
+	eosio::check(itr_token_contract != _token_contract.end(), "must link token contract first");
+	eosio::check(quantity.symbol == itr_token_contract->contract.get_symbol(), "not support token symbol");
+
+	/// check balance enough
+	auto amount_256 = asset_to_uint256(quantity, sym_precision);
+	eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eos_from->balance.extract_as_byte_array().data()) >= amount_256, "overdrawn balance");
+	/// update account table token balance
+	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance - amount_256;
+		/// intx::uint256 to eosio::checksum256
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
 	});
 }
 

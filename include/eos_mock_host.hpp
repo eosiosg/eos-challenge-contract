@@ -56,7 +56,7 @@ public:
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = eth_contract_160;
 				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
-				the_account.balance = asset(0, _token_contract.begin()->contract.get_symbol());
+				the_account.balance = std::static_pointer_cast<eos_evm>(_contract)->get_init_balance();
 				the_account.eosio_account = name();
 			});
 		}
@@ -132,9 +132,11 @@ public:
 		auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 		auto itr_sender = by_eth_account_index.find(evmc_address_to_checksum256(message.sender));
 		/// sub sender balance
-		auto transfer_asset = eosio::asset(from_evmc_uint256be(&transfer_value), _token_contract.begin()->contract.get_symbol());
+		auto transfer_amount_256 = intx::be::unsafe::load<intx::uint256>(&transfer_value.bytes[0]);
 		_account.modify(*itr_sender, eosio::same_payer, [&](auto &the_account){
-			the_account.balance -= transfer_asset;
+			intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+			intx::uint256 new_balance = old_balance - transfer_amount_256;
+			the_account.balance = intx_uint256_to_uint256_t(new_balance);
 		});
 		auto itr_dest = by_eth_account_index.find(evmc_address_to_checksum256(message.destination));
 		/// add destination balance
@@ -143,12 +145,16 @@ public:
 				the_account.id = _account.available_primary_key();
 				the_account.eth_address = evmc_address_to_checksum160(message.destination);
 				the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
-				the_account.balance = transfer_asset;
+				/// add balance
+				intx::uint256 balance = transfer_amount_256;
+				the_account.balance = intx_uint256_to_uint256_t(balance);
 				the_account.eosio_account = name();
 			});
 		} else {
 			_account.modify(*itr_dest, eosio::same_payer, [&](auto &the_account) {
-				the_account.balance += transfer_asset;
+				intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+				intx::uint256 new_balance = old_balance + transfer_amount_256;
+				the_account.balance = intx_uint256_to_uint256_t(new_balance);
 			});
 		}
 		result.status_code = EVMC_SUCCESS;
@@ -269,11 +275,14 @@ public:
 	  if (itr_eth_addr == by_eth_account_index.end()) {
 	  	return {};
 	  }
-	  auto balance_eosio = itr_eth_addr->balance.amount;
+	  auto balance_eosio = itr_eth_addr->balance;
 
-	  uint256be balance;
-	  to_evmc_uint256be(balance_eosio, &balance);
-	  return balance;
+	  eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
+	  eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
+	  auto itr_token_contract = _token_contract.begin();
+	  auto sym_precision = itr_token_contract->contract.get_symbol().precision();
+
+	  return checksum256_to_evmc_uint256(balance_eosio);
   }
 
   /// Get the account's code size (EVMC host method).
@@ -386,8 +395,10 @@ public:
 		auto code = eos_evm_ptr->get_eth_code(evmc_address_to_checksum256(msg.destination));
 		_result = vm_execute(code, msg);
 		if (_result.status_code == EVMC_SUCCESS) {
-			/// transfer token
-			if (from_evmc_uint256be(&msg.value) > 0) {
+			/// transfer value
+			auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
+			/// transfer asset
+			if (transfer_val > 0) {
 				transfer_fund(msg, _result);
 			}
 		} else {
