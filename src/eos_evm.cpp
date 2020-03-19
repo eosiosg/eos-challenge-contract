@@ -7,16 +7,17 @@
 
 const evmc_address zero_address{{0}};
 
-eos_evm::eos_evm(eosio::name receiver, eosio::name code,  datastream<const char*> ds): contract(receiver, code, ds) { }
+eos_evm::eos_evm(eosio::name receiver, eosio::name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_address) {
+void eos_evm::create(name eos_account, const binary_extension <std::string> eth_address) {
 	require_auth(eos_account);
 	// check eosio account exist
 	tb_account _account(_self, _self.value);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 
 	auto eth_address_value = eth_address.has_value() ? eth_address.value() : "";
-	auto create_type = eth_address_value.size() == 40 ? account_type::CREATE_ETH_PURE_ADDRESS : account_type::CREATE_EOS_ASSOCIATE_ADDRESS;
+	auto create_type = eth_address_value.size() == 40 ? account_type::CREATE_ETH_PURE_ADDRESS
+	                                                  : account_type::CREATE_EOS_ASSOCIATE_ADDRESS;
 
 	tb_token_contract _token_contract(_self, _self.value);
 	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
@@ -24,19 +25,19 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_
 
 	/// 1. eth_address == 160 bits eth account  set directly eth_address
 	if (create_type == account_type::CREATE_ETH_PURE_ADDRESS) {
-	    auto eth_address_arr = HexToBytes(eth_address_value);
-        eth_addr_256 eth_address_256 = vector_to_checksum256(eth_address_arr);
-        auto by_eth_account_index = _account.get_index<name("byeth")>();
-        auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-        eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
+		auto eth_address_arr = HexToBytes(eth_address_value);
+		eth_addr_256 eth_address_256 = vector_to_eth_addr_256(eth_address_arr);
+		auto by_eth_account_index = _account.get_index<name("byeth")>();
+		auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+		eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
 
-        _account.emplace(_self, [&](auto &the_account) {
-            the_account.id = _account.available_primary_key();
-            the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
-	        the_account.nonce = get_init_nonce();
-	        the_account.balance = get_init_balance();
-	        the_account.eosio_account = name();
-        });
+		_account.emplace(_self, [&](auto &the_account) {
+			the_account.id = _account.available_primary_key();
+			the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
+			the_account.nonce = get_init_nonce();
+			the_account.balance = get_init_balance();
+			the_account.eosio_account = name();
+		});
 	} else {
 		/// 2. eth_address ！= 160 bits eth account,  must associate EOSIO account
 		auto itr_eos_addr = by_eos_account_index.find(eos_account.value);
@@ -72,7 +73,7 @@ void eos_evm::create(name eos_account,  const binary_extension<std::string> eth_
 	}
 }
 
-void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender) {
+void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160> &sender) {
 	/// decode trx_code
 	eos_evm::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
 
@@ -81,7 +82,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	message_construct(trx, msg);
 
 	/// encode raw trx_code
-	std::vector<uint8_t> unsigned_trx = RLPEncodeTrx(trx);
+	std::vector <uint8_t> unsigned_trx = RLPEncodeTrx(trx);
 
 	/// generate unsigned trx hash
 	auto evmc_unsigned_trx_hash = gen_unsigned_trx_hash(unsigned_trx);
@@ -95,20 +96,20 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
 	auto trx_type = trx.is_r_or_s_zero() ? raw_verify_sig_type::EOS_SIG_VERIFY : raw_verify_sig_type::ETH_SIG_VERIFY;
 	if (trx_type == raw_verify_sig_type::ETH_SIG_VERIFY) {
-        /// use eth signature
-        /// Recover Address
-        evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
+		/// use eth signature
+		/// Recover Address
+		evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
 		msg.sender = from;
-        eosio::checksum256 sender_checksum_256 = evmc_address_to_checksum256(msg.sender);
-        auto itr_eth_addr = by_eth_account_index.find(sender_checksum_256);
+		eth_addr_256 sender_eth_addr_256 = evmc_address_to_eth_addr_256(msg.sender);
+		auto itr_eth_addr = by_eth_account_index.find(sender_eth_addr_256);
 		/// recover sender must exist
 		eosio::check(itr_eth_addr != by_eth_account_index.end(), "recover sender not exist in account table");
 	} else {
-	    /// use eos signature
+		/// use eos signature
 		eosio::check(sender.has_value(), "sender param can not be none"); /// sender exist;
-	    msg.sender = checksum160_to_evmc_address(sender.value());
-		eosio::checksum256 sender_checksum_256 = evmc_address_to_checksum256(msg.sender);
-		auto itr_eth_addr = by_eth_account_index.find(sender_checksum_256);
+		msg.sender = eth_addr_160_to_evmc_address(sender.value());
+		eth_addr_256 sender_eth_addr_256 = evmc_address_to_eth_addr_256(msg.sender);
+		auto itr_eth_addr = by_eth_account_index.find(sender_eth_addr_256);
 		/// sender must exist
 		eosio::check(itr_eth_addr != by_eth_account_index.end(), "sender not exist in account table");
 		/// assert EOS associate account exist
@@ -122,12 +123,12 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension<eth_addr_160>
 
 	evmc_result result;
 	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-	std::vector<uint8_t> code;
+	std::vector <uint8_t> code;
 	if (!trx.is_create_contract() && trx.data.size()) {
 		/// message_call
 		msg.kind = EVMC_CALL;
 		/// get eth code
-		auto eth_dest = vector_to_checksum256(trx.to);
+		auto eth_dest = vector_to_eth_addr_256(trx.to);
 		code = get_eth_code(eth_dest);
 		result = host.vm_execute(code, msg);
 	} else if (trx.is_create_contract()) {
@@ -199,7 +200,8 @@ void eos_evm::withdraw(name eos_account, asset quantity) {
 	).send();
 }
 
-evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s) {
+evmc_address
+eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s) {
 	if (version > 1) {
 		return zero_address;
 	}
@@ -207,12 +209,12 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 	std::array<uint8_t, 65> signature;
 	signature.fill({});
 	signature[0] = version + 31;
-	std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be), signature.data()+1);
-	std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be), signature.data()+33);
+	std::copy(r.bytes, r.bytes + sizeof(evmc_uint256be), signature.data() + 1);
+	std::copy(s.bytes, s.bytes + sizeof(evmc_uint256be), signature.data() + 33);
 
 	std::array<char, 65> ecc_sig;
 	std::copy_n(signature.data(), 65, ecc_sig.data());
-	eosio::signature eosio_signature = eosio::signature{std::in_place_index<0>, ecc_sig};
+	eosio::signature eosio_signature = eosio::signature{std::in_place_index < 0 > , ecc_sig};
 
 	std::array<uint8_t, 32> message_hash_arr;
 	std::copy(&hash.bytes[0], &hash.bytes[0] + 32, message_hash_arr.begin());
@@ -221,7 +223,7 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 	eosio::public_key pubkey_compress = eosio::recover_key(message_hash, eosio_signature);
 	auto k1_pubkey = std::get<0>(pubkey_compress);
 
-	std::vector<uint8_t> _compressed_key( std::begin(k1_pubkey), std::end(k1_pubkey) );
+	std::vector <uint8_t> _compressed_key(std::begin(k1_pubkey), std::end(k1_pubkey));
 
 	size_t pubkeysize = 65;
 	unsigned char pubkey[65];
@@ -229,7 +231,7 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 	uECC_decompress(_compressed_key.data(), pubkey + 1, uECC_secp256k1());
 
 	auto pubkeyhash =
-			ethash::keccak256((uint8_t *) (pubkey + 1), pubkeysize - 1);
+			ethash::keccak256((uint8_t * )(pubkey + 1), pubkeysize - 1);
 
 	evmc_address address;
 	std::copy(pubkeyhash.bytes + (sizeof(evmc_uint256be) - sizeof(evmc_address)),
@@ -238,7 +240,7 @@ evmc_address eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t versio
 }
 
 
-evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx) {
+evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector <uint8_t> unsigned_trx) {
 	auto unsigned_trx_hash = ethash::keccak256(unsigned_trx.data(), unsigned_trx.size());
 	evmc_uint256be evmc_unsigned_trx_hash;
 	std::copy(&unsigned_trx_hash.bytes[0], unsigned_trx_hash.bytes + sizeof(evmc_uint256be),
@@ -246,13 +248,13 @@ evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx)
 	return evmc_unsigned_trx_hash;
 }
 
-std::vector<uint8_t> eos_evm::get_eth_code(eth_addr_256 eth_address) {
+std::vector <uint8_t> eos_evm::get_eth_code(eth_addr_256 eth_address) {
 	tb_account_code _account_code(_self, _self.value);
 	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
 	eosio::check(itr_eth_code != by_eth_account_code_index.end(), "no contract on this account");
 
-	std::vector<uint8_t> eth_code = itr_eth_code->bytecode;
+	std::vector <uint8_t> eth_code = itr_eth_code->bytecode;
 	return eth_code;
 }
 
@@ -268,7 +270,7 @@ void eos_evm::message_construct(eos_evm::rlp_decode_trx &trx, evmc_message &msg)
 
 intx::uint256 eos_evm::get_nonce(const evmc_message &msg) {
 	tb_account _account(_self, _self.value);
-	eth_addr_256 eth_address_256 = evmc_address_to_checksum256(msg.sender);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(msg.sender);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
 	/// return nonce
@@ -284,7 +286,7 @@ uint256_t eos_evm::get_init_nonce() {
 
 void eos_evm::set_nonce(const evmc_message &msg) {
 	tb_account _account(_self, _self.value);
-	eth_addr_256 eth_address_256 = evmc_address_to_checksum256(msg.sender);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(msg.sender);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
 	/// modify + 1
@@ -307,7 +309,7 @@ uint256_t eos_evm::get_init_balance() {
 }
 
 /// add balance
-void eos_evm::add_balance(const name& eos_account, const asset& quantity) {
+void eos_evm::add_balance(const name &eos_account, const asset &quantity) {
 	tb_token_contract _token_contract(_self, _self.value);
 	eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
 	auto itr_token_contract = _token_contract.begin();
@@ -325,13 +327,15 @@ void eos_evm::add_balance(const name& eos_account, const asset& quantity) {
 	auto amount_256 = asset_to_uint256(quantity, sym_precision);
 	/// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
 		intx::uint256 new_balance = old_balance + amount_256;
 		the_account.balance = intx_uint256_to_uint256_t(new_balance);
 	});
 }
+
 /// sub balance
-void eos_evm::sub_balance(const name& eos_account, const asset& quantity) {
+void eos_evm::sub_balance(const name &eos_account, const asset &quantity) {
 	tb_account _account(_self, _self.value);
 	auto by_eos_account_index = _account.get_index<name("byeos")>();
 	auto itr_eos_from = by_eos_account_index.find(eos_account.value);
@@ -345,25 +349,28 @@ void eos_evm::sub_balance(const name& eos_account, const asset& quantity) {
 
 	/// check balance enough
 	auto amount_256 = asset_to_uint256(quantity, sym_precision);
-	eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eos_from->balance.extract_as_byte_array().data()) >= amount_256, "overdrawn balance");
+	eosio::check(
+			intx::be::unsafe::load<intx::uint256>(itr_eos_from->balance.extract_as_byte_array().data()) >= amount_256,
+			"overdrawn balance");
 	/// update account table token balance
 	_account.modify(*itr_eos_from, _self, [&](auto &the_account) {
-		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(the_account.balance.extract_as_byte_array().data());
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
 		intx::uint256 new_balance = old_balance - amount_256;
-		/// intx::uint256 to eosio::checksum256
+		/// intx::uint256 to uint256_t
 		the_account.balance = intx_uint256_to_uint256_t(new_balance);
 	});
 }
 
-std::vector<uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
+std::vector <uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
 	eosio::check(!parser.at_end(), "Transaction too short");
 	return parser.next();
 }
 
 eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
-	std::vector<uint8_t> tx = HexToBytes(trx_code);
+	std::vector <uint8_t> tx = HexToBytes(trx_code);
 	RLPParser tx_envelope_p = RLPParser(tx);
-	std::vector<uint8_t> tx_envelope = tx_envelope_p.next();
+	std::vector <uint8_t> tx_envelope = tx_envelope_p.next();
 	eosio::check(tx_envelope_p.at_end(), "There are more bytes here than one transaction");
 
 	RLPParser tx_parts_p = RLPParser(tx_envelope);
@@ -381,7 +388,7 @@ eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
 	return transaction;
 }
 
-std::vector<uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
+std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 	auto nonce = uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size());
 	auto gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
 	auto gas = uint256_from_vector(trx.gas_v.data(), trx.gas_v.size());
@@ -418,7 +425,7 @@ std::vector<uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 	RLPBuilder unsigned_trx_builder;
 	unsigned_trx_builder.start_list();
 
-	std::vector<uint8_t> empty;
+	std::vector <uint8_t> empty;
 	unsigned_trx_builder.add(empty);    // S
 	unsigned_trx_builder.add(empty);    // R
 	unsigned_trx_builder.add(chainID);  // V
@@ -450,7 +457,7 @@ std::vector<uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 		unsigned_trx_builder.add(nonce);
 	}
 
-	std::vector<uint8_t> unsigned_trx = unsigned_trx_builder.build();
+	std::vector <uint8_t> unsigned_trx = unsigned_trx_builder.build();
 	return unsigned_trx;
 }
 
