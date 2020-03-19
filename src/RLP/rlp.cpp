@@ -1,5 +1,6 @@
 // RLP Encoding, as defined: https://github.com/ethereum/wiki/wiki/RLP
 
+/*copy from https://github.com/vmware/concord.git*/
 #include "rlp.hpp"
 
 #include <assert.h>

@@ -1,5 +1,7 @@
 /* Copyright 2014, Kenneth MacKay. Licensed under the BSD 2-clause license. */
 
+/*copy from https://github.com/kmackay/micro-ecc*/
+
 #include "ecc/uECC.h"
 #include "ecc/uECC_vli.h"
 

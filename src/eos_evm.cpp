@@ -1,4 +1,5 @@
 #include <eos_evm.hpp>
+#include <ethash/hash_types.hpp>
 #include <ethash/keccak.hpp>
 
 

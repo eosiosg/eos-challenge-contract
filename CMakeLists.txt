@@ -7,13 +7,15 @@ if(EOSIO_CDT_ROOT STREQUAL "" OR NOT EOSIO_CDT_ROOT)
 endif()
 
 include(external/ethash/ProjectEthash.cmake)
+include(external/intx/ProjectIntx.cmake)
+include(external/evmone/ProjectEvmone.cmake)
 
 ExternalProject_Add(
    eos_evm_project
    SOURCE_DIR ${CMAKE_SOURCE_DIR}/src
    BINARY_DIR ${CMAKE_BINARY_DIR}/eos_evm
    CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake
-   DEPENDS ethash
+   DEPENDS ethash intx evmone
    UPDATE_COMMAND ""
    PATCH_COMMAND ""
    TEST_COMMAND ""
