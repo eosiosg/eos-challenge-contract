@@ -42,8 +42,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		};
 
 		enum raw_verify_sig_type {
-			ETH_SIG_VERIFY,
-			EOS_SIG_VERIFY
+			ETH_SIG_VERIFY_TYPE,
+			EOS_SIG_VERIFY_TYPE
 		};
 
 		struct rlp_decode_trx {
@@ -106,7 +106,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			eth_addr_160       eth_address;
 			uint256_t          nonce;
 			uint256_t          balance;
-			name               eosio_account; /// TODO need to change as optional
+			name               eosio_account;
 
 			uint64_t primary_key() const { return id; };
 			eth_addr_256 by_eth() const { return eth_addr_160_to_eth_addr_256(eth_address); };
