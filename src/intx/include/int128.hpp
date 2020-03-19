@@ -104,9 +104,7 @@ constexpr uint128 operator+(uint128 x) noexcept
     return x;
 }
 
-/// Performs subtraction of two unsinged numbers and returns the difference
-/// and the carry bit (aka borrow, overflow).
-constexpr uint_with_carry<128> sub_with_carry(uint128 a, uint128 b) noexcept
+constexpr uint_with_carry<128> sub_with_borrow(uint128 a, uint128 b) noexcept
 {
     const auto lo = a.lo - b.lo;
     const auto lo_borrow = lo > a.lo;
@@ -119,7 +117,7 @@ constexpr uint_with_carry<128> sub_with_carry(uint128 a, uint128 b) noexcept
 
 constexpr uint128 operator-(uint128 x, uint128 y) noexcept
 {
-    return sub_with_carry(x, y).value;
+    return sub_with_borrow(x, y).value;
 }
 
 constexpr uint128 operator-(uint128 x) noexcept

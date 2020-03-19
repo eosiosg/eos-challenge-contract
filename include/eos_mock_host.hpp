@@ -169,20 +169,11 @@ public:
   }
  protected:
 
-  eosio::checksum256 byte_array_addr_to_eth_addr(const address &addr) const {
-    auto addr_bytes = addr.bytes;
-    std::array<uint8_t, 32> eth_array;
-    eth_array.fill({});
-    std::copy_n(&addr_bytes[0], 20, eth_array.begin() + PADDING);
-    eth_addr_256 _addr = eosio::fixed_bytes<32>(eth_array);
-    return _addr;
-  }
-
   /// Returns true if an account exists (EVMC Host method).
   bool account_exists(const address &addr) const noexcept override {
 	  print(" \n account exists");
 
-	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -191,7 +182,7 @@ public:
 
   /// Get the account's storage value at the given key (EVMC Host method).
   bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
-    eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+    eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 	auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -219,7 +210,7 @@ public:
 								  const bytes32 &key,
 								  const bytes32 &value) noexcept override {
 	/// copy address to _addr(eosio::checksum256)
-	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
@@ -266,7 +257,7 @@ public:
   /// Get the account's balance (EVMC Host method).
   uint256be get_balance(const address &addr) const noexcept override {
 	  print(" \n get balance");
-	  eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	  eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 
 	  eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
 	  auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
@@ -288,7 +279,7 @@ public:
   /// Get the account's code size (EVMC host method).
   size_t get_code_size(const address &addr) const noexcept override {
 	  print(" \n get code size");
-	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
@@ -303,7 +294,7 @@ public:
   /// Get the account's code hash (EVMC host method).
   bytes32 get_code_hash(const address &addr) const noexcept override {
 	  print(" \n get code hash");
-	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
@@ -326,7 +317,7 @@ public:
 				   uint8_t *buffer_data,
 				   size_t buffer_size) const noexcept override {
   	print(" \n copy code");
-	eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+	eth_addr_256 _addr = evmc_address_to_checksum256(addr);
 	eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
 	auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(_addr);
@@ -347,7 +338,7 @@ public:
 
   /// Selfdestruct the account (EVMC host method).
   void selfdestruct(const address &addr, const address &beneficiary) noexcept override {
-      eth_addr_256 _addr = byte_array_addr_to_eth_addr(addr);
+      eth_addr_256 _addr = evmc_address_to_checksum256(addr);
       /// 1. remove account table record
       eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
       auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
