@@ -3,6 +3,7 @@ include(ExternalProject)
 set(prefix "${CMAKE_BINARY_DIR}/eos_evm/deps")
 set(EVMONE_LIBRARY "${prefix}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}evmone${CMAKE_STATIC_LIBRARY_SUFFIX}")
 set(EVMONE_INCLUDE_DIR "${prefix}/include/evmone")
+set(EVMC_INCLUDE_DIR "${prefix}/include/evmc")
 
 ExternalProject_Add(
         evmone
@@ -24,6 +25,7 @@ ExternalProject_Add(
         INSTALL_COMMAND  ${CMAKE_COMMAND} -E copy lib/evmone/${CMAKE_STATIC_LIBRARY_PREFIX}evmone${CMAKE_STATIC_LIBRARY_SUFFIX} ${EVMONE_LIBRARY}
         COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/include/evmone ${EVMONE_INCLUDE_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different <SOURCE_DIR>/lib/evmone/execution.hpp ${EVMONE_INCLUDE_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/evmc/include/evmc ${EVMC_INCLUDE_DIR}
 
         LOG_INSTALL 1
         BUILD_BYPRODUCTS "${EVMONE_LIBRARY}"
