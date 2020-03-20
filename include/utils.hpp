@@ -154,6 +154,8 @@ intx::uint256 asset_to_uint256(const eosio::asset &quantity, const uint8_t &sym_
 	 * amount of asset(1.0000 SYS) = 10000
 	 * 1 SYS = 10 ^ 18 wei.
 	 * transit asset amount amount * 10 ^ (18 - sym_precision) to uint256
+	 *
+	 * there is no need to care about sym_precision > 18, max_sym_precision = 18, constrained in symbol.hpp
 	 * */
 	intx::uint256 amount_256 = intx::narrow_cast<intx::uint256>(amount);
 	amount_256 *= pow(10, 18 - sym_precision);
