@@ -277,7 +277,7 @@ intx::uint256 eos_evm::get_nonce(const evmc_message &msg) {
 	return intx::be::unsafe::load<intx::uint256>(itr_eth_addr->nonce.extract_as_byte_array().data());
 }
 
-uint256_t eos_evm::get_init_nonce() {
+const uint256_t eos_evm::get_init_nonce() {
 	std::array<uint8_t, 32> init_nonce;
 	init_nonce.fill({});
 	init_nonce[init_nonce.size() - 1] = 0x01;
@@ -302,7 +302,7 @@ void eos_evm::set_nonce(const evmc_message &msg) {
 }
 
 /// init balance
-uint256_t eos_evm::get_init_balance() {
+const uint256_t eos_evm::get_init_balance() {
 	std::array<uint8_t, 32> init_balance;
 	init_balance.fill({});
 	return fixed_bytes<32>(init_balance);
