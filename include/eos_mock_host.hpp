@@ -108,7 +108,7 @@ namespace evmc {
 			return contract_address;
 		}
 
-		void transfer_fund(const evmc_message &message, evmc_result &result) {
+		void transfer(const evmc_message &message, evmc_result &result) {
 			/// get token symbol
 			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
 			/// get transfer amount
@@ -391,7 +391,7 @@ namespace evmc {
 					auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
 					/// transfer asset
 					if (transfer_val > 0) {
-						transfer_fund(msg, _result);
+						transfer(msg, _result);
 					}
 				} else {
 					_result.status_code = EVMC_FAILURE;

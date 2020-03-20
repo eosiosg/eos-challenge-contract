@@ -26,11 +26,11 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
-		void create(name eos_account, const binary_extension<std::string> eth_address);
+		void create(const name &eos_account, const binary_extension<std::string> &eth_address);
 		[[eosio::on_notify("*::transfer")]]
 		void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
 		[[eosio::action]]
-		void withdraw(name eos_account, asset amount);
+		void withdraw(const name &eos_account, const asset &amount);
 		[[eosio::action]]
 		void linktoken(const extended_symbol &contract);
 
@@ -54,30 +54,26 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			std::vector<uint8_t> value;
 			std::vector<uint8_t> data;
 			std::vector<uint8_t> v;
-			std::vector<uint8_t> r_v;
-			std::vector<uint8_t> s_v;
+			std::vector<uint8_t> r;
+			std::vector<uint8_t> s;
 
-			uint64_t get_chain_id() {
-				uint64_t chain_id = uint_from_vector(v, "chain ID");
-				return chain_id;
-			}
-
-			uint8_t get_actual_v() {
+			const std::tuple<uint8_t, uint64_t> get_v_chain_id_EIP155() const {
 				uint8_t actual_v;
-				auto chain_id = get_chain_id();
-				eosio::check(chain_id >= 37, "Non-EIP-155 signature V value");
+				uint64_t chain_id;
+				auto signature_v = uint_from_vector(v, "signature v");
+				eosio::check(signature_v >= 37, "Non-EIP-155 signature V value");
 
-				if (chain_id % 2) {
+				if (signature_v % 2) {
 					actual_v = 0;
-					chain_id = (chain_id - 35) / 2;
+					chain_id = (signature_v - 35) / 2;
 				} else {
 					actual_v = 1;
-					chain_id = (chain_id - 36) / 2;
+					chain_id = (signature_v - 36) / 2;
 				}
-				return actual_v;
+				return std::make_tuple(actual_v, chain_id);
 			}
 
-			bool is_r_or_s_zero() {return r_v.empty() || s_v.empty();};
+			bool is_r_or_s_zero() {return r.empty() || s.empty();};
 
 			bool is_create_contract() { return to.empty(); };
 		};
@@ -149,6 +145,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			indexed_by<"byeth"_n, const_mem_fun<st_account_code, eth_addr_256 , &st_account_code::by_eth>>
 			> tb_account_code;
 
+		/// used as singleton, validate in impl
 		struct [[eosio::table("eos_evm")]] st_token_contract {
 			uint64_t            id;
 			extended_symbol     contract;
@@ -160,13 +157,11 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 
 	public:
 		intx::uint256 get_nonce(const evmc_message &msg);
-		uint256_t get_init_nonce();
-		uint256_t get_init_balance();
+		const uint256_t get_init_nonce();
+		const uint256_t get_init_balance();
 		void set_nonce(const evmc_message &msg);
 		/// get code
-		std::vector<uint8_t> get_eth_code(eth_addr_256 eth_address);
-		/// transfer eosio SYS token
-		void transfer_fund(const evmc_message &message, evmc_result &result);
+		std::vector<uint8_t> get_eth_code(const eth_addr_256 &eth_address);
 		/// add balance
 		void add_balance(const name& eos_account, const asset& quantity);
 		/// sub balance
@@ -179,12 +174,12 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		rlp_decode_trx RLPDecodeTrx(const hex_code &trx_code);
 		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
 		/// keccak hash
-		evmc_uint256be gen_unsigned_trx_hash(std::vector<uint8_t> unsigned_trx);
+		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
 		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
 		/// message construct
-		void message_construct(eos_evm::rlp_decode_trx &trx, evmc_message &msg);
+		void message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg);
 	};
 
 

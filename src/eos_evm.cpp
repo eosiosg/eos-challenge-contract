@@ -9,7 +9,7 @@ const evmc_address zero_address{{0}};
 
 eos_evm::eos_evm(eosio::name receiver, eosio::name code, datastream<const char *> ds) : contract(receiver, code, ds) {}
 
-void eos_evm::create(name eos_account, const binary_extension <std::string> eth_address) {
+void eos_evm::create(const name &eos_account, const binary_extension <std::string> &eth_address) {
 	require_auth(eos_account);
 	// check eosio account exist
 	tb_account _account(_self, _self.value);
@@ -88,9 +88,9 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	auto evmc_unsigned_trx_hash = gen_unsigned_trx_hash(unsigned_trx);
 
 	evmc_uint256be r;
-	std::copy(trx.r_v.begin(), trx.r_v.end(), r.bytes);
+	std::copy(trx.r.begin(), trx.r.end(), r.bytes);
 	evmc_uint256be s;
-	std::copy(trx.s_v.begin(), trx.s_v.end(), s.bytes);
+	std::copy(trx.s.begin(), trx.s.end(), s.bytes);
 
 	tb_account _account(_self, _self.value);
 	auto by_eth_account_index = _account.get_index<name("byeth")>();
@@ -98,7 +98,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	if (trx_type == raw_verify_sig_type::ETH_SIG_VERIFY_TYPE) {
 		/// use eth signature
 		/// Recover Address
-		evmc_address from = ecrecover(evmc_unsigned_trx_hash, trx.get_actual_v(), r, s);
+		evmc_address from = ecrecover(evmc_unsigned_trx_hash, std::get<0>(trx.get_v_chain_id_EIP155()), r, s);
 		msg.sender = from;
 		eth_addr_256 sender_eth_addr_256 = evmc_address_to_eth_addr_256(msg.sender);
 		auto itr_eth_addr = by_eth_account_index.find(sender_eth_addr_256);
@@ -148,7 +148,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
 		/// transfer asset
 		if (transfer_val > 0) {
-			host.transfer_fund(msg, result);
+			host.transfer(msg, result);
 		}
 		set_nonce(msg);
 	}
@@ -184,7 +184,7 @@ void eos_evm::ontransfer(const name &from, const name &to, const asset &quantity
  * if asset precision is 4. ETH wei precision is 18.
  * the minimum withdraw amount is 0.0001 SYS = 10 ^ (18 - 4) wei
  * */
-void eos_evm::withdraw(name eos_account, asset quantity) {
+void eos_evm::withdraw(const name &eos_account, const asset &quantity) {
 	require_auth(eos_account);
 
 	tb_token_contract _token_contract(_self, _self.value);
@@ -240,7 +240,7 @@ eos_evm::ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc
 }
 
 
-evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector <uint8_t> unsigned_trx) {
+evmc_uint256be eos_evm::gen_unsigned_trx_hash(const std::vector <uint8_t> &unsigned_trx) {
 	auto unsigned_trx_hash = ethash::keccak256(unsigned_trx.data(), unsigned_trx.size());
 	evmc_uint256be evmc_unsigned_trx_hash;
 	std::copy(&unsigned_trx_hash.bytes[0], unsigned_trx_hash.bytes + sizeof(evmc_uint256be),
@@ -248,7 +248,7 @@ evmc_uint256be eos_evm::gen_unsigned_trx_hash(std::vector <uint8_t> unsigned_trx
 	return evmc_unsigned_trx_hash;
 }
 
-std::vector <uint8_t> eos_evm::get_eth_code(eth_addr_256 eth_address) {
+std::vector <uint8_t> eos_evm::get_eth_code(const eth_addr_256 &eth_address) {
 	tb_account_code _account_code(_self, _self.value);
 	auto by_eth_account_code_index = _account_code.get_index<name("byeth")>();
 	auto itr_eth_code = by_eth_account_code_index.find(eth_address);
@@ -258,7 +258,7 @@ std::vector <uint8_t> eos_evm::get_eth_code(eth_addr_256 eth_address) {
 	return eth_code;
 }
 
-void eos_evm::message_construct(eos_evm::rlp_decode_trx &trx, evmc_message &msg) {
+void eos_evm::message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg) {
 	std::copy(trx.to.begin(), trx.to.end(), &msg.destination.bytes[0]);;
 	msg.input_data = trx.data.data();
 	msg.input_size = trx.data.size();
@@ -382,8 +382,8 @@ eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
 	transaction.value = next_part(tx_parts_p, "value");
 	transaction.data = next_part(tx_parts_p, "data");
 	transaction.v = next_part(tx_parts_p, "signature V");
-	transaction.r_v = next_part(tx_parts_p, "signature R");
-	transaction.s_v = next_part(tx_parts_p, "signature S");
+	transaction.r = next_part(tx_parts_p, "signature R");
+	transaction.s = next_part(tx_parts_p, "signature S");
 
 	return transaction;
 }
@@ -394,13 +394,11 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 	auto gas = uint256_from_vector(trx.gas_v.data(), trx.gas_v.size());
 	auto value = uint256_from_vector(trx.value.data(), trx.value.size());
 
-//	eosio::check(trx.r_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
 	evmc_uint256be r;
-	std::copy(trx.r_v.begin(), trx.r_v.end(), r.bytes);
+	std::copy(trx.r.begin(), trx.r.end(), r.bytes);
 
-//	eosio::check(trx.s_v.size() == sizeof(evmc_uint256be), "signature R invalid length");
 	evmc_uint256be s;
-	std::copy(trx.s_v.begin(), trx.s_v.end(), s.bytes);
+	std::copy(trx.s.begin(), trx.s.end(), s.bytes);
 
 	// Figure out non-signed V
 
@@ -408,18 +406,7 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 		return {};
 	}
 
-	uint64_t chainID = uint_from_vector(trx.v, "chain ID");
-
-	uint8_t actualV;
-	eosio::check(chainID >= 37, "Non-EIP-155 signature V value");
-
-	if (chainID % 2) {
-		actualV = 0;
-		chainID = (chainID - 35) / 2;
-	} else {
-		actualV = 1;
-		chainID = (chainID - 36) / 2;
-	}
+	uint64_t chain_id = std::get<1>(trx.get_v_chain_id_EIP155());
 
 	// Re-encode RLP
 	RLPBuilder unsigned_trx_builder;
@@ -428,7 +415,7 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 	std::vector <uint8_t> empty;
 	unsigned_trx_builder.add(empty);    // S
 	unsigned_trx_builder.add(empty);    // R
-	unsigned_trx_builder.add(chainID);  // V
+	unsigned_trx_builder.add(chain_id);  // V
 	unsigned_trx_builder.add(trx.data);
 	if (value == 0) {
 		// signing hash expects 0x80 here, not 0x00
@@ -473,8 +460,8 @@ void eos_evm::print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx,
 	print(" \nvalue       : ",      uint_from_vector(trx.value, "value"));
 	print(" \ndata        : ");     printhex(trx.data.data(), trx.data.size());
 	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
-	print(" \nr           : ");     printhex(trx.r_v.data(), trx.r_v.size());
-	print(" \ns           : ");     printhex(trx.s_v.data(), trx.s_v.size());
+	print(" \nr           : ");     printhex(trx.r.data(), trx.r.size());
+	print(" \ns           : ");     printhex(trx.s.data(), trx.s.size());
 	auto print_contract_address = [&](evmc_result &result) {
 		print(" \ncontract    : ");  printhex(&result.create_address.bytes[0], sizeof(evmc::address));
 	};
