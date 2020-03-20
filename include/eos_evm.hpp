@@ -158,8 +158,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 	public:
 		eth_addr_160 create_eth_address(const name &eos_account, std::string &eth_address);
 		intx::uint256 get_nonce(const evmc_message &msg);
-		const uint256_t get_init_nonce();
-		const uint256_t get_init_balance();
 		void increase_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(const eth_addr_256 &eth_address);

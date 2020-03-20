@@ -53,8 +53,8 @@ namespace evmc {
 					_account.emplace(_contract->get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = eth_contract_160;
-						the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
-						the_account.balance = std::static_pointer_cast<eos_evm>(_contract)->get_init_balance();
+						the_account.nonce = INIT_NONCE;
+						the_account.balance = INIT_BALANCE;
 						the_account.eosio_account = name();
 					});
 				}
@@ -143,7 +143,7 @@ namespace evmc {
 					_account.emplace(_contract->get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = evmc_address_to_eth_addr_160(message.destination);
-						the_account.nonce = std::static_pointer_cast<eos_evm>(_contract)->get_init_nonce();
+						the_account.nonce = INIT_NONCE;
 						/// add balance
 						intx::uint256 balance = transfer_amount_256;
 						the_account.balance = intx_uint256_to_uint256_t(balance);

@@ -33,8 +33,8 @@ void eos_evm::create(const name &eos_account, const binary_extension <std::strin
 		_account.emplace(_self, [&](auto &the_account) {
 			the_account.id = _account.available_primary_key();
 			the_account.eth_address = eth_addr_256_to_eth_addr_160(eth_address_256);
-			the_account.nonce = get_init_nonce();
-			the_account.balance = get_init_balance();
+			the_account.nonce = INIT_NONCE;
+			the_account.balance = INIT_BALANCE;
 			the_account.eosio_account = name();
 		});
 	} else {
@@ -52,8 +52,8 @@ void eos_evm::create(const name &eos_account, const binary_extension <std::strin
 		_account.emplace(_self, [&](auto &the_account) {
 			the_account.id = _account.available_primary_key();
 			the_account.eth_address = eth_address_160;
-			the_account.nonce = get_init_nonce();
-			the_account.balance = get_init_balance();
+			the_account.nonce = INIT_NONCE;
+			the_account.balance = INIT_BALANCE;
 			the_account.eosio_account = eos_account;
 		});
 	}
@@ -280,13 +280,6 @@ intx::uint256 eos_evm::get_nonce(const evmc_message &msg) {
 	return intx::be::unsafe::load<intx::uint256>(itr_eth_addr->nonce.extract_as_byte_array().data());
 }
 
-const uint256_t eos_evm::get_init_nonce() {
-	std::array<uint8_t, 32> init_nonce;
-	init_nonce.fill({});
-	init_nonce[init_nonce.size() - 1] = 0x01;
-	return fixed_bytes<32>(init_nonce);
-}
-
 void eos_evm::increase_nonce(const evmc_message &msg) {
 	tb_account _account(_self, _self.value);
 	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(msg.sender);
@@ -302,13 +295,6 @@ void eos_evm::increase_nonce(const evmc_message &msg) {
 		std::copy(&evmc_nonce_256.bytes[0], &evmc_nonce_256.bytes[0] + sizeof(evmc_bytes32), nonce_arr.data());
 		the_account.nonce = fixed_bytes<32>(nonce_arr);
 	});
-}
-
-/// init balance
-const uint256_t eos_evm::get_init_balance() {
-	std::array<uint8_t, 32> init_balance;
-	init_balance.fill({});
-	return fixed_bytes<32>(init_balance);
 }
 
 /// add balance

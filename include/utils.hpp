@@ -15,6 +15,13 @@ using eth_addr_256 = eosio::checksum256;
 using binary_code = std::vector<uint8_t>;
 using hex_code = std::string;
 using uint256_t = eosio::checksum256;
+/// init nonce
+const std::array<uint8_t,32> ONE_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1};
+const eosio::fixed_bytes<32> INIT_NONCE(ONE_IN_BYTES);
+
+/// init balance
+const std::array<uint8_t,32> ZERO_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0};
+const eosio::fixed_bytes<32> INIT_BALANCE(ZERO_IN_BYTES);
 
 #define PADDING 12
 #define ADDRSIZE 20
