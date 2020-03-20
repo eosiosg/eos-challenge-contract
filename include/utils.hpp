@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <string>
 #include <intx.hpp>
+#include <math.h>
+
 
 using bytes = std::basic_string<uint8_t>;
 using eth_addr_160 = eosio::checksum160;
@@ -138,15 +140,16 @@ intx::uint256 uint256_from_vector(const uint8_t *begin, size_t size = 32) {
 }
 
 intx::uint256 asset_to_uint256(const eosio::asset &quantity, const uint8_t &sym_precision) {
+	eosio::check(quantity.amount > 0, "quantity must be > 0");
 	uint64_t amount = quantity.amount;
 	/**
 	 * if sym_precision = 4
 	 * amount of asset(1.0000 SYS) = 10000
 	 * 1 SYS = 10 ^ 18 wei.
-	 * transit asset amount left shift amount << (18 - sym_precision) * 8 to uint256
+	 * transit asset amount amount * 10 ^ (18 - sym_precision) to uint256
 	 * */
 	intx::uint256 amount_256 = intx::narrow_cast<intx::uint256>(amount);
-	amount_256 = amount_256 << (18 - sym_precision) * 8;
+	amount_256 *= pow(10, 18 - sym_precision);
 	return amount_256;
 }
 

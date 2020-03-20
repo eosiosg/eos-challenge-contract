@@ -380,7 +380,7 @@ namespace evmc {
 				/// create contract address
 				auto eth_contract_addr = contract_destination(msg.sender, nonce);
 				/// set nonce
-				std::static_pointer_cast<eos_evm>(_contract)->set_nonce(msg);
+				std::static_pointer_cast<eos_evm>(_contract)->increase_nonce(msg);
 				/// set contract
 				_result = create_contract(eth_contract_addr, msg);
 			} else {
