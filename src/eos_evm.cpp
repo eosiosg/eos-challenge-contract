@@ -118,6 +118,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto eth_dest = vector_to_eth_addr_256(trx.to);
 		code = get_eth_code(eth_dest);
 		result = host.vm_execute(code, msg);
+		increase_nonce(msg);
 	} else {
 		/// is create contract
 		msg.kind = EVMC_CREATE;
@@ -126,7 +127,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		result = host.create_contract(eth_contract_address, msg);
 	}
 
-	/// if result == EVMC_SUCCESS, transfer value and nonce + 1;
+	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
 		/// transfer value
 		auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
@@ -134,7 +135,6 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		if (transfer_val > 0) {
 			host.transfer(msg, result);
 		}
-		increase_nonce(msg);
 	}
 
 	/// print result
