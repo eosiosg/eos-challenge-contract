@@ -425,7 +425,6 @@ const instruction* op_codesize(const instruction* instr, execution_state& state)
 const instruction* op_codecopy(const instruction* instr, execution_state& state) noexcept
 {
     // TODO: Similar to op_calldatacopy().
-	eosio::print(" \n op_codecopy");
 
     const auto mem_index = state.stack.pop();
     const auto input_index = state.stack.pop();
@@ -814,7 +813,6 @@ const instruction* op_return(const instruction*, execution_state& state) noexcep
 template <evmc_call_kind kind>
 const instruction* op_call(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" \n opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -937,7 +935,6 @@ const instruction* op_call(const instruction* instr, execution_state& state) noe
 
 const instruction* op_delegatecall(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" \n delegate opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -1007,7 +1004,6 @@ const instruction* op_delegatecall(const instruction* instr, execution_state& st
 
 const instruction* op_staticcall(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" \n static opcall");
     const auto arg = instr->arg;
     auto gas = state.stack[0];
     const auto dst = intx::be::trunc<evmc::address>(state.stack[1]);
@@ -1072,7 +1068,6 @@ const instruction* op_staticcall(const instruction* instr, execution_state& stat
 
 const instruction* op_create(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" op_create.. ");
 	if (state.msg->flags & EVMC_STATIC)
         return state.exit(EVMC_STATIC_MODE_VIOLATION);
 
@@ -1132,7 +1127,6 @@ const instruction* op_create(const instruction* instr, execution_state& state) n
 
 const instruction* op_create2(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" op create2.. ");
     if (state.msg->flags & EVMC_STATIC)
         return state.exit(EVMC_STATIC_MODE_VIOLATION);
 

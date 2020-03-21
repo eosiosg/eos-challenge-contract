@@ -25,6 +25,7 @@ const eosio::fixed_bytes<32> INIT_BALANCE(ZERO_IN_BYTES);
 
 #define PADDING 12
 #define ADDRSIZE 20
+#define MAX_BATCH_DESTRUCT 100
 
 /// Encode a byte to a hex string.
 inline std::string hex(uint8_t b) noexcept {
