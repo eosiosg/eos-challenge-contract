@@ -46,7 +46,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			EOS_SIG_VERIFY_TYPE
 		};
 
-		struct rlp_decode_trx {
+		struct rlp_decoded_trx {
 			std::vector<uint8_t> nonce_v;
 			std::vector<uint8_t> gasPrice_v;
 			std::vector<uint8_t> gas_v;
@@ -170,15 +170,15 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		/// RLP
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
-		rlp_decode_trx RLPDecodeTrx(const hex_code &trx_code);
-		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
+		rlp_decoded_trx RLPDecodeTrx(const hex_code &trx_code);
+		std::vector<uint8_t> RLPEncodeTrx(const rlp_decoded_trx &trx);
 		/// keccak hash
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
-		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
+		void print_vm_receipt(evmc_result result, eos_evm::rlp_decoded_trx &trx, evmc_address &sender);
 		/// message construct
-		void message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg);
+		void message_construct(const eos_evm::rlp_decoded_trx &trx, evmc_message &msg);
 	};
 
 
