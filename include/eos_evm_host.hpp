@@ -1,5 +1,3 @@
-// Copyright 2019 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
 #pragma once
 
 #include <evmc/evmc.hpp>
@@ -14,7 +12,7 @@
 
 using namespace eosio;
 namespace evmc {
-	/// EOS EVMC Host implementation.
+	/// EOS EVM Host implementation.
 	class EOSHostContext : public Host {
 	public:
 		/// contract
@@ -81,7 +79,8 @@ namespace evmc {
 
 					result.create_address = eth_contract_addr;
 				} else {
-					/// erase EVM failed contract creation address and state to make sure EOS trx and EVM trx atomic
+					/// when result is not success, failed evm trx still needs to be recorded in eos trx,
+					/// which must success with no dirty data. Delete dirty address created before.
 					itr_eth_addr = by_eth_account_index.find(eth_contract_256);
 					eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
 					auto itr_eth_addr_state = _account_state.begin();
@@ -97,16 +96,11 @@ namespace evmc {
 			return result;
 		}
 
-		/// get contract address
-		address contract_destination(const address &sender, const intx::uint256 &nonce) {
+		/// create contract address
+		address create_address(const address &sender, const intx::uint256 &nonce) {
 			RLPBuilder rlp_builder;
 			rlp_builder.start_list();
-			if (nonce == 0) {
-				std::vector <uint8_t> empty_nonce;
-				rlp_builder.add(empty_nonce);
-			} else {
-				rlp_builder.add(nonce);
-			}
+			rlp_builder.add(nonce);
 			rlp_builder.add(&sender.bytes[0], sizeof(address));
 			std::vector <uint8_t> eth_rlp = rlp_builder.build();
 
@@ -119,8 +113,6 @@ namespace evmc {
 		}
 
 		void transfer(const evmc_message &message, evmc_result &result) {
-			/// get token symbol
-			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
 			/// get transfer amount
 			auto transfer_value = message.value;
 
@@ -172,7 +164,7 @@ namespace evmc {
 		}
 
 		evmc_result vm_execute(std::vector <uint8_t> &code, const evmc_message &msg) {
-			evmc_revision rev = EVMC_BYZANTIUM;
+			evmc_revision rev = EVMC_ISTANBUL;
 			auto vm = evmc_create_evmone();
 			evmc_result result = vm->execute(vm, &get_interface(), this->to_context(), rev, &msg, code.data(),
 			                                 code.size());
@@ -409,7 +401,7 @@ namespace evmc {
 				/// get nonce
 				auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce(msg);
 				/// create contract address
-				auto eth_contract_addr = contract_destination(msg.sender, nonce);
+				auto eth_contract_addr = create_address(msg.sender, nonce);
 				/// set contract
 				_result = create_contract(eth_contract_addr, msg);
 			} else {
@@ -437,7 +429,7 @@ namespace evmc {
 			result.block_coinbase = evmc_address({0});
 			result.block_number = eosio::tapos_block_num();
 			result.block_timestamp = eosio::time_point().sec_since_epoch();
-			result.block_gas_limit = 10000000;
+			result.block_gas_limit = block_gas_limit;
 			result.block_difficulty = evmc_uint256be({0});
 
 			return result;

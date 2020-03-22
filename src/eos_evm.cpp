@@ -3,7 +3,7 @@
 #include <ethash/keccak.hpp>
 
 
-#include <eos_mock_host.hpp>
+#include <eos_evm_host.hpp>
 
 const evmc_address zero_address{{0}};
 
@@ -123,7 +123,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		/// is create contract
 		msg.kind = EVMC_CREATE;
 		/// create a new eth address contract
-		auto eth_contract_address = host.contract_destination(msg.sender, nonce);
+		auto eth_contract_address = host.create_address(msg.sender, nonce);
 		result = host.create_contract(eth_contract_address, msg);
 	}
 
