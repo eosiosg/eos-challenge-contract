@@ -82,7 +82,7 @@ public:
 		_account.modify(*itr_eth_addr, _contract->get_self(), [&](auto &the_account) {
 			intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
 					the_account.balance.extract_as_byte_array().data());
-			intx::uint256 new_balance = old_balance + delta_balance;
+			intx::uint256 new_balance = old_balance + balance;
 			the_account.balance = intx_uint256_to_uint256_t(new_balance);
 		});
 	}
@@ -94,13 +94,13 @@ public:
 		auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
 		/// check enough balance
 		eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eth_addr->balance.extract_as_byte_array().data()) >=
-		             delta_balance, "overdrawn balance");
+		             balance, "overdrawn balance");
 
 		/// update account table token balance
 		_account.modify(*itr_eth_addr, _contract->get_self(), [&](auto &the_account) {
 			intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
 					the_account.balance.extract_as_byte_array().data());
-			intx::uint256 new_balance = old_balance - delta_balance;
+			intx::uint256 new_balance = old_balance - balance;
 			the_account.balance = intx_uint256_to_uint256_t(new_balance);
 		});
 	}
