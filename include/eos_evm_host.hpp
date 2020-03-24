@@ -59,6 +59,7 @@ namespace evmc {
 
 				/// execute create code
 				result = vm_execute(create_code, msg);
+				eosio::check(result.output_size, "contract can not be empty");
 				/// get raw evm code from result output
 				std::vector <uint8_t> raw_evm_code;
 				std::copy_n(result.output_data, result.output_size, std::back_inserter(raw_evm_code));
@@ -70,15 +71,16 @@ namespace evmc {
 					auto itr_eth_code = by_eth_account_code_index.find(eth_contract_256);
 					if (itr_eth_code != by_eth_account_code_index.end()) {
 						result.status_code = EVMC_FAILURE;
+					} else {
+						_account_code.emplace(_contract->get_self(), [&](auto &the_account_code) {
+							the_account_code.id = _account_code.available_primary_key();
+							the_account_code.eth_address = eth_contract_160;
+							the_account_code.bytecode = raw_evm_code;
+						});
 					}
-					_account_code.emplace(_contract->get_self(), [&](auto &the_account_code) {
-						the_account_code.id = _account_code.available_primary_key();
-						the_account_code.eth_address = eth_contract_160;
-						the_account_code.bytecode = raw_evm_code;
-					});
-
 					result.create_address = eth_contract_addr;
-				} else {
+				}
+				if (result.status_code != EVMC_SUCCESS){
 					/// when result is not success, failed evm trx still needs to be recorded in eos trx,
 					/// which must success with no dirty data. Delete dirty address created before.
 					itr_eth_addr = by_eth_account_index.find(eth_contract_256);
@@ -429,7 +431,7 @@ namespace evmc {
 			result.block_coinbase = evmc_address({0});
 			result.block_number = eosio::tapos_block_num();
 			result.block_timestamp = eosio::time_point().sec_since_epoch();
-			result.block_gas_limit = block_gas_limit;
+			result.block_gas_limit = BLOCK_GAS_LIMIT;
 			result.block_difficulty = evmc_uint256be({0});
 
 			return result;
