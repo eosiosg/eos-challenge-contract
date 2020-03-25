@@ -456,16 +456,6 @@ namespace evmc {
 			}
 			std::copy(data, data + data_size, std::back_inserter(emit_log.data));
 			eth_emit_logs.push_back(emit_log);
-			/// print eth emit logs
-			auto print_emit_logs = [&](eos_evm::eth_log &emit_log) {
-				print(" \n address    : ");
-				printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
-				print(" \n topic      : ", emit_log.topics_to_string());
-				print(" \n data       : ");
-				printhex(emit_log.data.data(), emit_log.data.size());
-			};
-			print(" \nemit log    : ");
-			std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
 		}
 	};
 }  // namespace evmc

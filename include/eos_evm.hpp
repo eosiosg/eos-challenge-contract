@@ -83,18 +83,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			std::vector<evmc_uint256be> topics;
 			std::vector<uint8_t> data;
 
-			std::string topics_to_string() {
-				std::string topics_str;
-				for (int i = 0; i < topics.size(); ++i) {
-					topics_str += "\"";
-					topics_str += BytesToHex(std::vector<uint8_t>(&topics[i].bytes[0], &topics[i].bytes[0] + sizeof(evmc_uint256be)));
-					topics_str += "\"";
-					if (i != topics.size() - 1) {
-						topics_str += ",";
-					}
-				}
-				return topics_str;
-			}
+			std::string topics_to_string() const;
 		};
 
 		struct [[eosio::table("eos_evm")]] st_account {
@@ -176,7 +165,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
-		void print_vm_receipt(evmc_result result, eos_evm::rlp_decode_trx &trx, evmc_address &sender);
+		void print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
+		void print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
 		/// message construct
 		void message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg);
 	};
