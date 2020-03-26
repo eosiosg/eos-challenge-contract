@@ -226,6 +226,25 @@ void eos_evm::simulate(const hex_code &trx_code, const binary_extension <eth_add
 	eosio::check(false, "local mock execution");
 }
 
+/// for client get receipt
+void eos_evm::log(const std::string &status_code,
+         const std::string &output,
+         const std::string &from,
+         const std::string &to,
+         const std::string &nonce,
+         const std::string &gas_price,
+         const std::string &gas_left,
+         const std::string &gas_usage,
+         const std::string &value,
+         const std::string &data,
+         const std::string &v,
+         const std::string &r,
+         const std::string &s,
+         const std::string &contract,
+         const std::string &eth_emit_logs){
+	require_auth(_self);
+}
+
 void eos_evm::linktoken(const extended_symbol &contract) {
 	tb_token_contract _token_contract(_self, _self.value);
 	auto itr_token_contract = _token_contract.begin();
@@ -609,6 +628,27 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rl
 	vm_receipt += "\"contract\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
 	vm_receipt += eth_emit_logs_json == "" ? "\"" : "\"," ;  vm_receipt += eth_emit_logs_json;  vm_receipt +=  "}";
 	print(vm_receipt);
+
+	action(
+			permission_level{_self, "active"_n},
+			_self,
+			"log"_n,
+			std::make_tuple(evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)),
+			                BytesToHex(output_data),
+			                BytesToHex(sender_v),
+			                BytesToHex(trx.to),
+			                std::to_string(uint_from_vector(trx.nonce_v, "nonce")),
+			                std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v")),
+			                std::to_string(result.gas_left),
+			                std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left),
+			                BytesToHex(trx.value),
+			                BytesToHex(trx.data),
+			                std::to_string(uint_from_vector(trx.v, "v")),
+			                BytesToHex(trx.r),
+			                BytesToHex(trx.s),
+			                BytesToHex(create_address_v),
+			                eth_emit_logs_json)
+	).send();
 }
 
 std::string eos_evm::eth_log::topics_to_string() const {

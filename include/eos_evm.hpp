@@ -35,6 +35,23 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void withdraw(const name &eos_account, const asset &amount);
 		[[eosio::action]]
 		void linktoken(const extended_symbol &contract);
+		[[eosio::action]]
+		void log(const std::string &status_code,
+				 const std::string &output,
+				 const std::string &from,
+				 const std::string &to,
+				 const std::string &nonce,
+				 const std::string &gas_price,
+				 const std::string &gas_left,
+				 const std::string &gas_usage,
+				 const std::string &value,
+				 const std::string &data,
+				 const std::string &v,
+				 const std::string &r,
+				 const std::string &s,
+				 const std::string &contract,
+				 const std::string &eth_emit_logs
+				);
 
 	public:
 
