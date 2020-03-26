@@ -7,6 +7,7 @@
 #include <string>
 #include <intx.hpp>
 #include <math.h>
+#include <limits>
 
 
 using bytes = std::basic_string<uint8_t>;
@@ -22,7 +23,7 @@ const eosio::fixed_bytes<32> INIT_NONCE(ONE_IN_BYTES);
 /// init balance
 const std::array<uint8_t,32> ZERO_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0};
 const eosio::fixed_bytes<32> INIT_BALANCE(ZERO_IN_BYTES);
-const int64_t BLOCK_GAS_LIMIT = 10000000;
+const int64_t BLOCK_GAS_LIMIT = std::numeric_limits<int64_t>::max();
 
 #define PADDING 12
 #define ADDRSIZE 20
