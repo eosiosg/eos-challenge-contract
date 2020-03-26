@@ -138,91 +138,12 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	}
 
 	/// print result
-//	print_vm_receipt(result, trx, msg.sender, host.eth_emit_logs);
 	print_vm_receipt_json(result, trx,msg.sender, host.eth_emit_logs);
 }
 
-/// execute locally to get transaction receipt
+/// execute only on API node and do not broadcast transaction to get EVM execution receipt
 void eos_evm::simulate(const hex_code &trx_code, const binary_extension <eth_addr_160> &sender) {
-	/// decode trx_code
-	eos_evm::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
-
-	/// construct evmc_message
-	evmc_message msg{};
-	message_construct(trx, msg);
-
-	/// encode raw trx_code
-	std::vector <uint8_t> unsigned_trx = RLPEncodeTrx(trx);
-
-	/// generate unsigned trx hash
-	auto evmc_unsigned_trx_hash = gen_unsigned_trx_hash(unsigned_trx);
-
-	evmc_uint256be r;
-	std::copy(trx.r.begin(), trx.r.end(), r.bytes);
-	evmc_uint256be s;
-	std::copy(trx.s.begin(), trx.s.end(), s.bytes);
-
-	tb_account _account(_self, _self.value);
-	auto by_eth_account_index = _account.get_index<name("byeth")>();
-	/// validate signature by verify_sig_type
-	auto trx_type = trx.is_r_or_s_zero() ? raw_verify_sig_type::EOS_SIG_VERIFY_TYPE : raw_verify_sig_type::ETH_SIG_VERIFY_TYPE;
-	if (trx_type == raw_verify_sig_type::ETH_SIG_VERIFY_TYPE) {
-		/// use eth signature
-		/// Recover Address
-		evmc_address from = ecrecover(evmc_unsigned_trx_hash, std::get<0>(trx.get_v_chain_id_EIP155()), r, s);
-		msg.sender = from;
-		eth_addr_256 sender_eth_addr_256 = evmc_address_to_eth_addr_256(msg.sender);
-		auto itr_eth_addr = by_eth_account_index.find(sender_eth_addr_256);
-		/// recover sender must exist
-		eosio::check(itr_eth_addr != by_eth_account_index.end(), "recover sender not exist in account table");
-	} else {
-		/// use eos signature
-		eosio::check(sender.has_value(), "sender param can not be none"); /// sender exist;
-		msg.sender = eth_addr_160_to_evmc_address(sender.value());
-		eth_addr_256 sender_eth_addr_256 = evmc_address_to_eth_addr_256(msg.sender);
-		auto itr_eth_addr = by_eth_account_index.find(sender_eth_addr_256);
-		/// sender must exist
-		eosio::check(itr_eth_addr != by_eth_account_index.end(), "sender not exist in account table");
-		/// assert EOS associate account exist
-		eosio::check(itr_eth_addr->eosio_account != name(), "eosio associate account must exist");
-		/// assert EOS associate account signature
-		require_auth(itr_eth_addr->eosio_account);
-	}
-	/// assert nonce
-	auto nonce = get_nonce(msg);
-	eosio::check(nonce == uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size()), "nonce mismatch");
-
-	evmc_result result;
-	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
-	std::vector <uint8_t> code;
-	if (!trx.is_create_contract()) {
-		/// message_call
-		msg.kind = EVMC_CALL;
-		/// get eth code
-		auto eth_dest = vector_to_eth_addr_256(trx.to);
-		code = get_eth_code(eth_dest);
-		result = host.vm_execute(code, msg);
-		increase_nonce(msg);
-	} else {
-		/// is create contract
-		msg.kind = EVMC_CREATE;
-		/// create a new eth address contract
-		auto eth_contract_address = host.create_address(msg.sender, nonce);
-		result = host.create_contract(eth_contract_address, msg);
-	}
-
-	/// if result == EVMC_SUCCESS, transfer value;
-	if (result.status_code == EVMC_SUCCESS) {
-		/// transfer value
-		auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
-		/// transfer asset
-		if (transfer_val > 0) {
-			host.transfer(msg, result);
-		}
-	}
-
-	/// print result
-	print_vm_receipt_json(result, trx,msg.sender, host.eth_emit_logs);
+	raw(trx_code, sender);
 	eosio::check(false, "local mock execution");
 }
 
