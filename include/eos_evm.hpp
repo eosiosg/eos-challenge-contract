@@ -26,6 +26,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
+		void simulate(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+		[[eosio::action]]
 		void create(const name &eos_account, const binary_extension<std::string> &eth_address);
 		[[eosio::on_notify("*::transfer")]]
 		void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
