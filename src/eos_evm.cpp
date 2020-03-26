@@ -144,7 +144,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 /// execute only on API node and do not broadcast transaction to get EVM execution receipt
 void eos_evm::simulate(const hex_code &trx_code, const binary_extension <eth_addr_160> &sender) {
 	raw(trx_code, sender);
-	eosio::check(false, "local mock execution");
+	eosio::check(false, "mock execution");
 }
 
 /// for client get receipt
