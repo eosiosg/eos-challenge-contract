@@ -138,8 +138,32 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	}
 
 	/// print result
-	print_vm_receipt(result, trx, msg.sender, host.eth_emit_logs);
 	print_vm_receipt_json(result, trx,msg.sender, host.eth_emit_logs);
+}
+
+/// execute only on API node and do not broadcast transaction to get EVM execution receipt
+void eos_evm::simulate(const hex_code &trx_code, const binary_extension <eth_addr_160> &sender) {
+	raw(trx_code, sender);
+	eosio::check(false, "mock execution");
+}
+
+/// for client get receipt
+void eos_evm::log(const std::string &status_code,
+         const std::string &output,
+         const std::string &from,
+         const std::string &to,
+         const std::string &nonce,
+         const std::string &gas_price,
+         const std::string &gas_left,
+         const std::string &gas_usage,
+         const std::string &value,
+         const std::string &data,
+         const std::string &v,
+         const std::string &r,
+         const std::string &s,
+         const std::string &contract,
+         const std::string &eth_emit_logs){
+	require_auth(_self);
 }
 
 void eos_evm::linktoken(const extended_symbol &contract) {
@@ -462,7 +486,7 @@ void eos_evm::print_vm_receipt(const evmc_result &result, const eos_evm::rlp_dec
 	auto print_emit_logs = [&](const eos_evm::eth_log &emit_log) {
 		print(" \n address    : ");
 		printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
-		print(" \n ", emit_log.topics_to_string());
+		print(" \n topic      : ", emit_log.topics_to_string());
 		print(" \n data       : ");
 		printhex(emit_log.data.data(), emit_log.data.size());
 	};
@@ -509,23 +533,43 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rl
 		}
 	}
 
-	print(" \n print receipt as json: \n");
-	print("{\"status_code\": ", "\"", evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)),  "\"," ,
-			"\"output\": ", "\"", BytesToHex(output_data), "\",",
-			"\"from\": ", "\"", BytesToHex(sender_v), "\",",
-            "\"to\": ", "\"", BytesToHex(trx.to), "\",",
-            "\"nonce\": ", "\"", uint_from_vector(trx.nonce_v, "nonce"), "\",",
-            "\"gas_price\": ", "\"", uint_from_vector(trx.gasPrice_v, "gasPrice_v"), "\",",
-            "\"gas_left\": ", "\"", result.gas_left, "\",",
-            "\"gas_usage\": ", "\"", uint_from_vector(trx.gas_v, "gas") - result.gas_left, "\",",
-			"\"value\": ", "\"", BytesToHex(trx.value), "\",",
-			"\"data\": ", "\"", BytesToHex(trx.data), "\",",
-			"\"v\": ", "\"", uint_from_vector(trx.v, "v"), "\",",
-			"\"r\": ", "\"", BytesToHex(trx.r), "\",",
-			"\"s\": ", "\"", BytesToHex(trx.s), "\",",
-            "\"contract\": ", "\"", BytesToHex(create_address_v), "\",",
-            eth_emit_logs_json, "}"
-	);
+	std::string vm_receipt = "{\"status_code\": ";  vm_receipt += "\"";  vm_receipt += evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code));  vm_receipt +=  "\"," ;
+	vm_receipt += "\"output\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(output_data);  vm_receipt += "\",";
+	vm_receipt += "\"from\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(sender_v);  vm_receipt += "\",";
+	vm_receipt += "\"to\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.to);  vm_receipt += "\",";
+	vm_receipt += "\"nonce\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.nonce_v, "nonce"));  vm_receipt += "\",";
+	vm_receipt += "\"gas_price\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v"));  vm_receipt += "\",";
+	vm_receipt += "\"gas_left\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(result.gas_left);  vm_receipt += "\",";
+	vm_receipt += "\"gas_usage\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left);  vm_receipt += "\",";
+	vm_receipt += "\"value\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.value);  vm_receipt += "\",";
+	vm_receipt += "\"data\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.data);  vm_receipt += "\",";
+	vm_receipt += "\"v\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.v, "v"));  vm_receipt += "\",";
+	vm_receipt += "\"r\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.r);  vm_receipt += "\",";
+	vm_receipt += "\"s\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.s);  vm_receipt += "\",";
+	vm_receipt += "\"contract\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
+	vm_receipt += eth_emit_logs_json == "" ? "\"" : "\"," ;  vm_receipt += eth_emit_logs_json;  vm_receipt +=  "}";
+	print(vm_receipt);
+
+	action(
+			permission_level{_self, "active"_n},
+			_self,
+			"log"_n,
+			std::make_tuple(evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)),
+			                BytesToHex(output_data),
+			                BytesToHex(sender_v),
+			                BytesToHex(trx.to),
+			                std::to_string(uint_from_vector(trx.nonce_v, "nonce")),
+			                std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v")),
+			                std::to_string(result.gas_left),
+			                std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left),
+			                BytesToHex(trx.value),
+			                BytesToHex(trx.data),
+			                std::to_string(uint_from_vector(trx.v, "v")),
+			                BytesToHex(trx.r),
+			                BytesToHex(trx.s),
+			                BytesToHex(create_address_v),
+			                eth_emit_logs_json)
+	).send();
 }
 
 std::string eos_evm::eth_log::topics_to_string() const {
