@@ -184,7 +184,6 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
-		void print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
 		void print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
 		/// message construct
 		void message_construct(const eos_evm::rlp_decoded_trx &trx, evmc_message &msg);

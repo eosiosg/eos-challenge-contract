@@ -135,35 +135,10 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	}
 	gas_manager.set_vm_execute_result(result);
 	gas_manager.refund_gas();
-	/// add used gas to self
 	auto gas_used = gas_manager.gas_used();
 	auto gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
-	auto miner_gas_fee = gas_used * gas_price;
-	if (miner_gas_fee > 0) {
-		/// add gas fee to eos contract address
-		auto by_eos_account_index = _account.get_index<name("byeos")>();
-		auto itr_eos_self = by_eos_account_index.find(_self.value);
-		if (itr_eos_self != by_eos_account_index.end()) {
-			gas_manager.add_balance(eth_addr_160_to_evmc_address(itr_eos_self->eth_address), miner_gas_fee);
-		} else {
-			/// create address associate with _self address and add balance
-			std::string eth_address_value = "";
-			eth_addr_160 eth_address_160 = create_eth_address(_self, eth_address_value);
-			eth_addr_256 eth_address_256 = eth_addr_160_to_eth_addr_256(eth_address_160);
-
-			auto by_eth_account_index = _account.get_index<name("byeth")>();
-			auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-			eosio::check(itr_eth_addr == by_eth_account_index.end(), "eth address already exist");
-
-			_account.emplace(_self, [&](auto &the_account) {
-				the_account.id = _account.available_primary_key();
-				the_account.eth_address = eth_address_160;
-				the_account.nonce = INIT_NONCE;
-				the_account.balance = intx_uint256_to_uint256_t(miner_gas_fee);
-				the_account.eosio_account = get_self();
-			});
-		}
-	}
+	auto gas_fee = gas_used * gas_price;
+	eosio::check(gas_fee == 0, "gas fee must be 0");
 
 	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
@@ -498,38 +473,6 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decoded_trx &trx) {
 
 	std::vector <uint8_t> unsigned_trx = unsigned_trx_builder.build();
 	return unsigned_trx;
-}
-
-void eos_evm::print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
-
-	std::vector<uint8_t> create_address_v;
-	create_address_v.reserve(sizeof(evmc_address));
-	create_address_v.assign(&result.create_address.bytes[0], &result.create_address.bytes[0] + sizeof(evmc_address));
-
-	print(" \nstatus_code : ",      evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)));
-	print(" \noutput      : ");     printhex(result.output_data, result.output_size);
-	print(" \nfrom        : ");     printhex(&sender.bytes[0], sizeof(evmc_address));
-	print(" \nto          : ");     printhex(trx.to.data(), trx.to.size());
-	print(" \nnonce       : ",      uint_from_vector(trx.nonce_v, "nonce"));
-	print(" \ngas_price   : ",      uint_from_vector(trx.gasPrice_v, "gasPrice_v"));
-	print(" \ngas_left    : ",      result.gas_left);
-	print(" \ngas_usage   : ",      uint_from_vector(trx.gas_v, "gas") - result.gas_left);
-	print(" \nvalue       : ",      uint_from_vector(trx.value, "value"));
-	print(" \ndata        : ");     printhex(trx.data.data(), trx.data.size());
-	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
-	print(" \nr           : ");     printhex(trx.r.data(), trx.r.size());
-	print(" \ns           : ");     printhex(trx.s.data(), trx.s.size());
-	print(" \ncontract    : ",      BytesToHex(create_address_v));
-	/// print eth emit logs
-	auto print_emit_logs = [&](const eos_evm::eth_log &emit_log) {
-		print(" \n address    : ");
-		printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
-		print(" \n topic      : ", emit_log.topics_to_string());
-		print(" \n data       : ");
-		printhex(emit_log.data.data(), emit_log.data.size());
-	};
-	print(" \nemit log    : ");
-	std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
 }
 
 void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
