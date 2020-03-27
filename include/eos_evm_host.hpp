@@ -16,9 +16,17 @@ namespace evmc {
 	class EOSHostContext : public Host {
 	public:
 		/// contract
-		EOSHostContext(std::shared_ptr <eosio::contract> contract_ptr) : _contract(contract_ptr) {};
+		EOSHostContext(std::shared_ptr <eosio::contract> contract_ptr) : _contract(contract_ptr) {
+			tx_context.tx_gas_price = GAS_PRICE_FORCED;
+			tx_context.block_coinbase = evmc_address({0});
+			tx_context.block_number = eosio::tapos_block_num();
+			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
+			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
+			tx_context.block_difficulty = evmc_uint256be({0});
+		};
 		std::shared_ptr <eosio::contract> _contract;
 
+		evmc_tx_context tx_context{};
 		/// The block header hash value to be returned by get_block_hash().
 		bytes32 block_hash = {};
 
@@ -423,14 +431,6 @@ namespace evmc {
 
 		/// Get transaction context (EVMC host method).
 		evmc_tx_context get_tx_context() const noexcept override {
-			evmc_tx_context tx_context = {};
-			tx_context.tx_gas_price = GAS_PRICE_FORCED;
-			tx_context.block_coinbase = evmc_address({0});
-			tx_context.block_number = eosio::tapos_block_num();
-			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
-			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
-			tx_context.block_difficulty = evmc_uint256be({0});
-
 			return tx_context;
 		}
 
