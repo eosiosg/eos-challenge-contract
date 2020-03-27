@@ -546,30 +546,32 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rl
 	vm_receipt += "\"v\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.v, "v"));  vm_receipt += "\",";
 	vm_receipt += "\"r\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.r);  vm_receipt += "\",";
 	vm_receipt += "\"s\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.s);  vm_receipt += "\",";
-	vm_receipt += "\"contract\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
+	vm_receipt += "\"create address\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
 	vm_receipt += eth_emit_logs_json == "" ? "\"" : "\"," ;  vm_receipt += eth_emit_logs_json;  vm_receipt +=  "}";
 	print(vm_receipt);
 
-	action(
-			permission_level{_self, "active"_n},
-			_self,
-			"log"_n,
-			std::make_tuple(evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)),
-			                BytesToHex(output_data),
-			                BytesToHex(sender_v),
-			                BytesToHex(trx.to),
-			                std::to_string(uint_from_vector(trx.nonce_v, "nonce")),
-			                std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v")),
-			                std::to_string(result.gas_left),
-			                std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left),
-			                BytesToHex(trx.value),
-			                BytesToHex(trx.data),
-			                std::to_string(uint_from_vector(trx.v, "v")),
-			                BytesToHex(trx.r),
-			                BytesToHex(trx.s),
-			                BytesToHex(create_address_v),
-			                eth_emit_logs_json)
-	).send();
+	if (static_cast<evmc::address>(result.create_address) == static_cast<evmc::address>(zero_address)) {
+		action(
+				permission_level{_self, "active"_n},
+				_self,
+				"log"_n,
+				std::make_tuple(evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)),
+				                BytesToHex(output_data),
+				                BytesToHex(sender_v),
+				                BytesToHex(trx.to),
+				                std::to_string(uint_from_vector(trx.nonce_v, "nonce")),
+				                std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v")),
+				                std::to_string(result.gas_left),
+				                std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left),
+				                BytesToHex(trx.value),
+				                BytesToHex(trx.data),
+				                std::to_string(uint_from_vector(trx.v, "v")),
+				                BytesToHex(trx.r),
+				                BytesToHex(trx.s),
+				                BytesToHex(create_address_v),
+				                eth_emit_logs_json)
+		).send();
+	}
 }
 
 std::string eos_evm::eth_log::topics_to_string() const {
