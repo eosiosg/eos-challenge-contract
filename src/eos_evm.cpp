@@ -546,11 +546,11 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rl
 	vm_receipt += "\"v\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.v, "v"));  vm_receipt += "\",";
 	vm_receipt += "\"r\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.r);  vm_receipt += "\",";
 	vm_receipt += "\"s\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.s);  vm_receipt += "\",";
-	vm_receipt += "\"contract\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
+	vm_receipt += "\"create address\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(create_address_v);
 	vm_receipt += eth_emit_logs_json == "" ? "\"" : "\"," ;  vm_receipt += eth_emit_logs_json;  vm_receipt +=  "}";
 	print(vm_receipt);
 
-	if (create_address_v.empty()) {
+	if (static_cast<evmc::address>(result.create_address) == static_cast<evmc::address>(zero_address)) {
 		action(
 				permission_level{_self, "active"_n},
 				_self,
