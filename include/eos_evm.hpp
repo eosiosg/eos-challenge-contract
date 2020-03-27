@@ -26,6 +26,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		[[eosio::action]]
 		void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 		[[eosio::action]]
+		void simulate(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+		[[eosio::action]]
 		void create(const name &eos_account, const binary_extension<std::string> &eth_address);
 		[[eosio::on_notify("*::transfer")]]
 		void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
@@ -33,6 +35,23 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void withdraw(const name &eos_account, const asset &amount);
 		[[eosio::action]]
 		void linktoken(const extended_symbol &contract);
+		[[eosio::action]]
+		void log(const std::string &status_code,
+				 const std::string &output,
+				 const std::string &from,
+				 const std::string &to,
+				 const std::string &nonce,
+				 const std::string &gas_price,
+				 const std::string &gas_left,
+				 const std::string &gas_usage,
+				 const std::string &value,
+				 const std::string &data,
+				 const std::string &v,
+				 const std::string &r,
+				 const std::string &s,
+				 const std::string &contract,
+				 const std::string &eth_emit_logs
+				);
 
 	public:
 
@@ -83,18 +102,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			std::vector<evmc_uint256be> topics;
 			std::vector<uint8_t> data;
 
-			std::string topics_to_string() {
-				std::string topics_str;
-				for (int i = 0; i < topics.size(); ++i) {
-					topics_str += "\"";
-					topics_str += BytesToHex(std::vector<uint8_t>(&topics[i].bytes[0], &topics[i].bytes[0] + sizeof(evmc_uint256be)));
-					topics_str += "\"";
-					if (i != topics.size() - 1) {
-						topics_str += ",";
-					}
-				}
-				return topics_str;
-			}
+			std::string topics_to_string() const;
 		};
 
 		struct [[eosio::table("eos_evm")]] st_account {
@@ -176,7 +184,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
-		void print_vm_receipt(evmc_result result, eos_evm::rlp_decoded_trx &trx, evmc_address &sender);
+		void print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
+		void print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
 		/// message construct
 		void message_construct(const eos_evm::rlp_decoded_trx &trx, evmc_message &msg);
 	};

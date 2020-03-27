@@ -1,5 +1,3 @@
-// Copyright 2019 The EVMC Authors.
-// Licensed under the Apache License, Version 2.0.
 #pragma once
 
 #include <evmc/evmc.hpp>
@@ -14,15 +12,12 @@
 
 using namespace eosio;
 namespace evmc {
-	/// EOS EVMC Host implementation.
+	/// EOS EVM Host implementation.
 	class EOSHostContext : public Host {
 	public:
 		/// contract
 		EOSHostContext(std::shared_ptr <eosio::contract> contract_ptr) : _contract(contract_ptr) {};
 		std::shared_ptr <eosio::contract> _contract;
-
-		/// The EVMC transaction context to be returned by get_tx_context().
-		evmc_tx_context tx_context = {};
 
 		/// The block header hash value to be returned by get_block_hash().
 		bytes32 block_hash = {};
@@ -61,6 +56,7 @@ namespace evmc {
 
 				/// execute create code
 				result = vm_execute(create_code, msg);
+				eosio::check(result.output_size, "contract can not be empty");
 				/// get raw evm code from result output
 				std::vector <uint8_t> raw_evm_code;
 				std::copy_n(result.output_data, result.output_size, std::back_inserter(raw_evm_code));
@@ -72,16 +68,18 @@ namespace evmc {
 					auto itr_eth_code = by_eth_account_code_index.find(eth_contract_256);
 					if (itr_eth_code != by_eth_account_code_index.end()) {
 						result.status_code = EVMC_FAILURE;
+					} else {
+						_account_code.emplace(_contract->get_self(), [&](auto &the_account_code) {
+							the_account_code.id = _account_code.available_primary_key();
+							the_account_code.eth_address = eth_contract_160;
+							the_account_code.bytecode = raw_evm_code;
+						});
 					}
-					_account_code.emplace(_contract->get_self(), [&](auto &the_account_code) {
-						the_account_code.id = _account_code.available_primary_key();
-						the_account_code.eth_address = eth_contract_160;
-						the_account_code.bytecode = raw_evm_code;
-					});
-
 					result.create_address = eth_contract_addr;
-				} else {
-					/// erase EVM failed contract creation address and state to make sure EOS trx and EVM trx atomic
+				}
+				if (result.status_code != EVMC_SUCCESS){
+					/// when result is not success, failed evm trx still needs to be recorded in eos trx,
+					/// which must success with no dirty data. Delete dirty address created before.
 					itr_eth_addr = by_eth_account_index.find(eth_contract_256);
 					eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
 					auto itr_eth_addr_state = _account_state.begin();
@@ -97,16 +95,11 @@ namespace evmc {
 			return result;
 		}
 
-		/// get contract address
-		address contract_destination(const address &sender, const intx::uint256 &nonce) {
+		/// create contract address
+		address create_address(const address &sender, const intx::uint256 &nonce) {
 			RLPBuilder rlp_builder;
 			rlp_builder.start_list();
-			if (nonce == 0) {
-				std::vector <uint8_t> empty_nonce;
-				rlp_builder.add(empty_nonce);
-			} else {
-				rlp_builder.add(nonce);
-			}
+			rlp_builder.add(nonce);
 			rlp_builder.add(&sender.bytes[0], sizeof(address));
 			std::vector <uint8_t> eth_rlp = rlp_builder.build();
 
@@ -119,8 +112,6 @@ namespace evmc {
 		}
 
 		void transfer(const evmc_message &message, evmc_result &result) {
-			/// get token symbol
-			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
 			/// get transfer amount
 			auto transfer_value = message.value;
 
@@ -172,7 +163,7 @@ namespace evmc {
 		}
 
 		evmc_result vm_execute(std::vector <uint8_t> &code, const evmc_message &msg) {
-			evmc_revision rev = EVMC_BYZANTIUM;
+			evmc_revision rev = EVMC_ISTANBUL;
 			auto vm = evmc_create_evmone();
 			evmc_result result = vm->execute(vm, &get_interface(), this->to_context(), rev, &msg, code.data(),
 			                                 code.size());
@@ -409,7 +400,7 @@ namespace evmc {
 				/// get nonce
 				auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce(msg);
 				/// create contract address
-				auto eth_contract_addr = contract_destination(msg.sender, nonce);
+				auto eth_contract_addr = create_address(msg.sender, nonce);
 				/// set contract
 				_result = create_contract(eth_contract_addr, msg);
 			} else {
@@ -432,15 +423,15 @@ namespace evmc {
 
 		/// Get transaction context (EVMC host method).
 		evmc_tx_context get_tx_context() const noexcept override {
-			evmc_tx_context result = {};
-			//result.tx_gas_price = 100000;
-			result.block_coinbase = evmc_address({0});
-			result.block_number = eosio::tapos_block_num();
-			result.block_timestamp = eosio::time_point().sec_since_epoch();
-			result.block_gas_limit = 10000000;
-			result.block_difficulty = evmc_uint256be({0});
+			evmc_tx_context tx_context = {};
+			tx_context.tx_gas_price = GAS_PRICE_FORCED;
+			tx_context.block_coinbase = evmc_address({0});
+			tx_context.block_number = eosio::tapos_block_num();
+			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
+			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
+			tx_context.block_difficulty = evmc_uint256be({0});
 
-			return result;
+			return tx_context;
 		}
 
 		/// Get the block header hash (EVMC host method).
@@ -462,16 +453,6 @@ namespace evmc {
 			}
 			std::copy(data, data + data_size, std::back_inserter(emit_log.data));
 			eth_emit_logs.push_back(emit_log);
-			/// print eth emit logs
-			auto print_emit_logs = [&](eos_evm::eth_log &emit_log) {
-				print(" \n address    : ");
-				printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
-				print(" \n topic      : ", emit_log.topics_to_string());
-				print(" \n data       : ");
-				printhex(emit_log.data.data(), emit_log.data.size());
-			};
-			print(" \nemit log    : ");
-			std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
 		}
 	};
 }  // namespace evmc

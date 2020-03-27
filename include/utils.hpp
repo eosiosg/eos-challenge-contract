@@ -7,6 +7,7 @@
 #include <string>
 #include <intx.hpp>
 #include <math.h>
+#include <limits>
 
 
 using bytes = std::basic_string<uint8_t>;
@@ -22,6 +23,8 @@ const eosio::fixed_bytes<32> INIT_NONCE(ONE_IN_BYTES);
 /// init balance
 const std::array<uint8_t,32> ZERO_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0};
 const eosio::fixed_bytes<32> INIT_BALANCE(ZERO_IN_BYTES);
+const int64_t BLOCK_GAS_LIMIT = std::numeric_limits<int64_t>::max();
+const auto GAS_PRICE_FORCED = evmc_uint256be({0});
 
 #define PADDING 12
 #define ADDRSIZE 20
@@ -156,7 +159,7 @@ intx::uint256 asset_to_uint256(const eosio::asset &quantity, const uint8_t &sym_
 	 * 1 SYS = 10 ^ 18 wei.
 	 * transit asset amount amount * 10 ^ (18 - sym_precision) to uint256
 	 *
-	 * there is no need to care about sym_precision > 18, max_sym_precision = 18, constrained in symbol.hpp
+	 * max sym_precision is 18, constrained in symbol.hpp
 	 * */
 	intx::uint256 amount_256 = intx::narrow_cast<intx::uint256>(amount);
 	amount_256 *= pow(10, 18 - sym_precision);
