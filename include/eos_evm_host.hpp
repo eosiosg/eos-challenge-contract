@@ -424,7 +424,7 @@ namespace evmc {
 		/// Get transaction context (EVMC host method).
 		evmc_tx_context get_tx_context() const noexcept override {
 			evmc_tx_context tx_context = {};
-			tx_context.tx_gas_price = evmc_uint256be({0});
+			tx_context.tx_gas_price = GAS_PRICE_FORCED;
 			tx_context.block_coinbase = evmc_address({0});
 			tx_context.block_number = eosio::tapos_block_num();
 			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
