@@ -105,7 +105,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		require_auth(itr_eth_addr->eosio_account);
 	}
 
-	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
+	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	/// force set gas price = tx_context.gas_price
 	std::copy_n(&host.tx_context.tx_gas_price.bytes[0], sizeof(evmc_uint256be), trx.gasPrice_v.data());
 
@@ -114,7 +114,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	eosio::check(nonce == uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size()), "nonce mismatch");
 
 	/// load gas manager
-	auto gas_manager = GasManager(std::make_shared<eosio::contract>(*this), trx, msg);
+	auto gas_manager = GasManager(*this, trx, msg);
 	gas_manager.buy_gas();
 	evmc_result result;
 	std::vector <uint8_t> code;

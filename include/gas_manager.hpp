@@ -10,8 +10,8 @@
 class GasManager {
 
 public:
-	GasManager(std::shared_ptr <eosio::contract> contract_ptr, eos_evm::rlp_decoded_trx &trx, evmc_message &message)
-			: _contract(contract_ptr), _trx(trx), _msg(message), _gas(0), _initial_gas(0) {
+	GasManager(eos_evm &contract, eos_evm::rlp_decoded_trx &trx, evmc_message &message)
+			: _contract(contract), _trx(trx), _msg(message), _gas(0), _initial_gas(0) {
 		vm_execute_result = {};
 	}
 
@@ -23,7 +23,7 @@ public:
 			intx::uint256 msg_gas_value = gas * gas_price;
 
 			/// check balance
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<name("byeth")>();
 			eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(this->_msg.sender);
 			auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
@@ -33,7 +33,7 @@ public:
 			eosio::check(sender_balance >= msg_gas_value, "insufficient balance for gas");
 
 			/// sub balance
-			std::static_pointer_cast<eos_evm>(_contract)->sub_balance(this->_msg.sender, msg_gas_value);
+			_contract.sub_balance(this->_msg.sender, msg_gas_value);
 
 			/// add gas
 			this->_gas += intx::narrow_cast<uint64_t>(gas);
@@ -61,7 +61,7 @@ public:
 			auto remaining = this->_gas * gas_price;
 
 			if (this->_gas > 0 && gas_price > 0) {
-				std::static_pointer_cast<eos_evm>(_contract)->add_balance(this->_msg.sender, remaining);
+				_contract.add_balance(this->_msg.sender, remaining);
 			}
 		}
 	}
@@ -77,7 +77,7 @@ public:
 private:
 	eos_evm::rlp_decoded_trx _trx;
 	evmc_message _msg;
-	std::shared_ptr <eosio::contract> _contract;
+	eos_evm &_contract;
 	uint64_t _gas;
 	uint64_t _initial_gas;
 	evmc_result vm_execute_result;

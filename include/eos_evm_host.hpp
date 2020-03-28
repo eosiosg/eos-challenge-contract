@@ -16,7 +16,7 @@ namespace evmc {
 	class EOSHostContext : public Host {
 	public:
 		/// contract
-		EOSHostContext(std::shared_ptr <eosio::contract> contract_ptr) : _contract(contract_ptr) {
+		EOSHostContext(eos_evm &contract) : _contract(contract) {
 			tx_context.tx_gas_price = GAS_PRICE_FORCED;
 			tx_context.block_coinbase = evmc_address({0});
 			tx_context.block_number = eosio::tapos_block_num();
@@ -24,7 +24,7 @@ namespace evmc {
 			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
 			tx_context.block_difficulty = evmc_uint256be({0});
 		};
-		std::shared_ptr <eosio::contract> _contract;
+		eos_evm &_contract;
 
 		evmc_tx_context tx_context{};
 		/// The block header hash value to be returned by get_block_hash().
@@ -48,12 +48,12 @@ namespace evmc {
 				msg.destination = eth_contract_addr;
 
 				/// add account to table
-				eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+				eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 				auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 				auto itr_eth_addr = by_eth_account_index.find(eth_contract_256);
 				if (itr_eth_addr == by_eth_account_index.end()) {
-					eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
-					_account.emplace(_contract->get_self(), [&](auto &the_account) {
+					eos_evm::tb_token_contract _token_contract(_contract.get_self(), _contract.get_self().value);
+					_account.emplace(_contract.get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = eth_contract_160;
 						the_account.nonce = INIT_NONCE;
@@ -71,13 +71,13 @@ namespace evmc {
 
 				if (result.status_code == EVMC_SUCCESS) {
 					/// add code to table
-					eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+					eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
 					auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 					auto itr_eth_code = by_eth_account_code_index.find(eth_contract_256);
 					if (itr_eth_code != by_eth_account_code_index.end()) {
 						result.status_code = EVMC_FAILURE;
 					} else {
-						_account_code.emplace(_contract->get_self(), [&](auto &the_account_code) {
+						_account_code.emplace(_contract.get_self(), [&](auto &the_account_code) {
 							the_account_code.id = _account_code.available_primary_key();
 							the_account_code.eth_address = eth_contract_160;
 							the_account_code.bytecode = raw_evm_code;
@@ -89,7 +89,7 @@ namespace evmc {
 					/// when result is not success, failed evm trx still needs to be recorded in eos trx,
 					/// which must success with no dirty data. Delete dirty address created before.
 					itr_eth_addr = by_eth_account_index.find(eth_contract_256);
-					eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+					eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_addr->id);
 					auto itr_eth_addr_state = _account_state.begin();
 					while (itr_eth_addr_state != _account_state.end()) {
 						itr_eth_addr_state = _account_state.erase(itr_eth_addr_state);
@@ -135,7 +135,7 @@ namespace evmc {
 				eosio::print("not enough balance");
 			} else {
 				/// modify table
-				eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+				eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 				auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 				auto itr_sender = by_eth_account_index.find(evmc_address_to_eth_addr_256(message.sender));
 				/// sub sender balance
@@ -149,7 +149,7 @@ namespace evmc {
 				auto itr_dest = by_eth_account_index.find(evmc_address_to_eth_addr_256(message.destination));
 				/// add destination balance
 				if (itr_dest == by_eth_account_index.end()) {
-					_account.emplace(_contract->get_self(), [&](auto &the_account) {
+					_account.emplace(_contract.get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = evmc_address_to_eth_addr_160(message.destination);
 						the_account.nonce = INIT_NONCE;
@@ -183,7 +183,7 @@ namespace evmc {
 		/// Returns true if an account exists (EVMC Host method).
 		bool account_exists(const address &addr) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 			auto itr_eth_addr = by_eth_account_index.find(_addr);
 			return itr_eth_addr != by_eth_account_index.end();
@@ -192,12 +192,12 @@ namespace evmc {
 		/// Get the account's storage value at the given key (EVMC Host method).
 		bytes32 get_storage(const address &addr, const bytes32 &key) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 			auto itr_eth_addr = by_eth_account_index.find(_addr);
 			if (itr_eth_addr == by_eth_account_index.end()) return {};
 
-			eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_addr->id);
 			auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
 			/// key to checksum256
 			std::array<uint8_t, 32> key_array;
@@ -220,14 +220,14 @@ namespace evmc {
 		                                const bytes32 &value) noexcept override {
 			/// copy address to _addr(eth_addr_256)
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
 			auto itr_eth_addr = by_eth_account_index.find(_addr);
 			if (itr_eth_addr == by_eth_account_index.end())
 				return EVMC_STORAGE_UNCHANGED;
 
-			eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_addr->id);
+			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_addr->id);
 			auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
 			/// key to checksum256
 			std::array<uint8_t, 32> key_array;
@@ -241,7 +241,7 @@ namespace evmc {
 
 			evmc_storage_status status{};
 			if (itr_eth_addr_state == by_eth_account_state_index.end()) {
-				_account_state.emplace(_contract->get_self(), [&](auto &the_state) {
+				_account_state.emplace(_contract.get_self(), [&](auto &the_state) {
 					the_state.id = _account_state.available_primary_key();
 					the_state.key = key_eosio;
 					the_state.value = new_value_eosio;
@@ -266,7 +266,7 @@ namespace evmc {
 		uint256be get_balance(const address &addr) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
 
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 
 			auto itr_eth_addr = by_eth_account_index.find(_addr);
@@ -275,7 +275,7 @@ namespace evmc {
 			}
 			auto balance_eosio = itr_eth_addr->balance;
 
-			eos_evm::tb_token_contract _token_contract(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_token_contract _token_contract(_contract.get_self(), _contract.get_self().value);
 			eosio::check(_token_contract.begin() != _token_contract.end(), "must link token contract first");
 			auto itr_token_contract = _token_contract.begin();
 			auto sym_precision = itr_token_contract->contract.get_symbol().precision();
@@ -286,7 +286,7 @@ namespace evmc {
 		/// Get the account's code size (EVMC host method).
 		size_t get_code_size(const address &addr) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 			auto itr_eth_code = by_eth_account_code_index.find(_addr);
 			if (itr_eth_code == by_eth_account_code_index.end()) {
@@ -300,7 +300,7 @@ namespace evmc {
 		/// Get the account's code hash (EVMC host method).
 		bytes32 get_code_hash(const address &addr) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 			auto itr_eth_code = by_eth_account_code_index.find(_addr);
 			if (itr_eth_code == by_eth_account_code_index.end()) {
@@ -322,7 +322,7 @@ namespace evmc {
 		                 uint8_t *buffer_data,
 		                 size_t buffer_size) const noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 			auto itr_eth_code = by_eth_account_code_index.find(_addr);
 			if (itr_eth_code == by_eth_account_code_index.end()) {
@@ -343,12 +343,12 @@ namespace evmc {
 		/// Selfdestruct the account (EVMC host method).
 		void selfdestruct(const address &addr, const address &beneficiary) noexcept override {
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
-			eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
+			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 			auto itr_eth_suicide = by_eth_account_index.find(_addr);
 			auto batch_count = MAX_BATCH_DESTRUCT;
 			/// 1. remove account state record, if there is large amount of data need to call multi-times
-			eos_evm::tb_account_state _account_state(_contract->get_self(), itr_eth_suicide->id);
+			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_suicide->id);
 			auto itr_eth_suicide_state = _account_state.begin();
 			while (itr_eth_suicide_state != _account_state.end() && batch_count) {
 				itr_eth_suicide_state = _account_state.erase(itr_eth_suicide_state);
@@ -364,7 +364,7 @@ namespace evmc {
 
 				if (itr_eth_beneficiary != by_eth_account_index.end()) {
 					/// update account table token balance
-					_account.modify(*itr_eth_beneficiary, _contract->get_self(), [&](auto &the_account) {
+					_account.modify(*itr_eth_beneficiary, _contract.get_self(), [&](auto &the_account) {
 						intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
 								the_account.balance.extract_as_byte_array().data());
 						intx::uint256 new_balance = old_balance + remain_balance;
@@ -372,7 +372,7 @@ namespace evmc {
 					});
 				} else {
 					/// create beneficiary
-					_account.emplace(_contract->get_self(), [&](auto &the_account) {
+					_account.emplace(_contract.get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = evmc_address_to_eth_addr_160(beneficiary);
 						the_account.nonce = INIT_NONCE;
@@ -386,7 +386,7 @@ namespace evmc {
 					by_eth_account_index.erase(itr_eth_suicide);
 				}
 				/// 4. remove account code table record
-				eos_evm::tb_account_code _account_code(_contract->get_self(), _contract->get_self().value);
+				eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
 				auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
 				auto itr_eth_code = by_eth_account_code_index.find(_addr);
 				if (itr_eth_code != by_eth_account_code_index.end()) {
@@ -398,7 +398,6 @@ namespace evmc {
 		/// Call/create other contract (EVMC host method).
 		result call(const evmc_message &msg) noexcept override {
 			eosio::check(msg.depth > 0, "call depth should > 0");
-			auto eos_evm_ptr = std::static_pointer_cast<eos_evm>(_contract);
 			evmc_result _result;
 			_result.output_data = nullptr;
 			_result.output_size = 0;
@@ -406,13 +405,13 @@ namespace evmc {
 			_result.release = nullptr;
 			if (msg.kind == EVMC_CREATE) {
 				/// get nonce
-				auto nonce = std::static_pointer_cast<eos_evm>(_contract)->get_nonce(msg);
+				auto nonce = _contract.get_nonce(msg);
 				/// create contract address
 				auto eth_contract_addr = create_address(msg.sender, nonce);
 				/// set contract
 				_result = create_contract(eth_contract_addr, msg);
 			} else {
-				auto code = eos_evm_ptr->get_eth_code(evmc_address_to_eth_addr_256(msg.destination));
+				auto code = _contract.get_eth_code(evmc_address_to_eth_addr_256(msg.destination));
 				_result = vm_execute(code, msg);
 				if (_result.status_code == EVMC_SUCCESS) {
 					/// transfer value
