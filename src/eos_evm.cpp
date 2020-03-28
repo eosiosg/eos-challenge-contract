@@ -107,14 +107,15 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 
 	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	/// force set gas price = tx_context.gas_price
-	std::copy_n(&host.tx_context.tx_gas_price.bytes[0], sizeof(evmc_uint256be), trx.gasPrice_v.data());
+	std::copy_n(&host.tx_context.tx_gas_price.bytes[0], sizeof(trx.gasPrice_v.size()), trx.gasPrice_v.data());
 
 	/// assert nonce
 	auto nonce = get_nonce(msg);
 	eosio::check(nonce == uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size()), "nonce mismatch");
 
 	/// load gas manager
-	auto gas_manager = GasManager(*this, trx, msg);
+	intx::uint256 gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
+	auto gas_manager = GasManager(*this, msg, gas_price);
 	gas_manager.buy_gas();
 	evmc_result result;
 	std::vector <uint8_t> code;
@@ -134,11 +135,10 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		result = host.create_contract(eth_contract_address, msg);
 	}
 	gas_manager.set_vm_execute_result(result);
-	gas_manager.refund_gas();
 	auto gas_used = gas_manager.gas_used();
-	auto gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
 	auto gas_fee = gas_used * gas_price;
 	eosio::check(gas_fee == 0, "gas fee must be 0");
+	gas_manager.refund_gas();
 
 	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
@@ -151,7 +151,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	}
 
 	/// print result
-	print_vm_receipt_json(result, trx,msg.sender, host.eth_emit_logs);
+	print_vm_receipt_json(result, trx, msg.sender, host.eth_emit_logs);
 }
 
 /// execute only on API node and do not broadcast transaction to get EVM execution receipt
