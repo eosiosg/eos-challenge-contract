@@ -65,7 +65,7 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 			EOS_SIG_VERIFY_TYPE
 		};
 
-		struct rlp_decode_trx {
+		struct rlp_decoded_trx {
 			std::vector<uint8_t> nonce_v;
 			std::vector<uint8_t> gasPrice_v;
 			std::vector<uint8_t> gas_v;
@@ -169,25 +169,24 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void increase_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(const eth_addr_256 &eth_address);
-		/// add balance
 		void add_balance(const name& eos_account, const asset& quantity);
-		/// sub balance
 		void sub_balance(const name& eos_account, const asset& quantity);
+		void add_balance(const evmc::address &address, const intx::uint256 &balance);
+		void sub_balance(const evmc::address &address, const intx::uint256 &balance);
 	private:
 		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);
 		/// RLP
 		std::vector<uint8_t> next_part(RLPParser &parser, const char *label);
-		rlp_decode_trx RLPDecodeTrx(const hex_code &trx_code);
-		std::vector<uint8_t> RLPEncodeTrx(const rlp_decode_trx &trx);
+		rlp_decoded_trx RLPDecodeTrx(const hex_code &trx_code);
+		std::vector<uint8_t> RLPEncodeTrx(const rlp_decoded_trx &trx);
 		/// keccak hash
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
 
 		/// print receipt
-		void print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
-		void print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
+		void print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eth_log> &eth_emit_logs);
 		/// message construct
-		void message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg);
+		void message_construct(const eos_evm::rlp_decoded_trx &trx, evmc_message &msg);
 	};
 
 

@@ -2,8 +2,8 @@
 #include <ethash/hash_types.hpp>
 #include <ethash/keccak.hpp>
 
-
 #include <eos_evm_host.hpp>
+#include <gas_manager.hpp>
 
 const evmc_address zero_address{{0}};
 
@@ -61,7 +61,7 @@ void eos_evm::create(const name &eos_account, const binary_extension <std::strin
 
 void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160> &sender) {
 	/// decode trx_code
-	eos_evm::rlp_decode_trx trx = RLPDecodeTrx(trx_code);
+	eos_evm::rlp_decoded_trx trx = RLPDecodeTrx(trx_code);
 
 	/// construct evmc_message
 	evmc_message msg{};
@@ -104,12 +104,19 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		/// assert EOS associate account signature
 		require_auth(itr_eth_addr->eosio_account);
 	}
+
+	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
+	/// force set gas price = tx_context.gas_price
+	std::copy_n(&host.tx_context.tx_gas_price.bytes[0], sizeof(evmc_uint256be), trx.gasPrice_v.data());
+
 	/// assert nonce
 	auto nonce = get_nonce(msg);
 	eosio::check(nonce == uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size()), "nonce mismatch");
 
+	/// load gas manager
+	auto gas_manager = GasManager(*this, trx, msg);
+	gas_manager.buy_gas();
 	evmc_result result;
-	evmc::EOSHostContext host = evmc::EOSHostContext(std::make_shared<eosio::contract>(*this));
 	std::vector <uint8_t> code;
 	if (!trx.is_create_contract()) {
 		/// message_call
@@ -126,6 +133,12 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto eth_contract_address = host.create_address(msg.sender, nonce);
 		result = host.create_contract(eth_contract_address, msg);
 	}
+	gas_manager.set_vm_execute_result(result);
+	gas_manager.refund_gas();
+	auto gas_used = gas_manager.gas_used();
+	auto gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
+	auto gas_fee = gas_used * gas_price;
+	eosio::check(gas_fee == 0, "gas fee must be 0");
 
 	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
@@ -286,7 +299,7 @@ std::vector <uint8_t> eos_evm::get_eth_code(const eth_addr_256 &eth_address) {
 	return eth_code;
 }
 
-void eos_evm::message_construct(const eos_evm::rlp_decode_trx &trx, evmc_message &msg) {
+void eos_evm::message_construct(const eos_evm::rlp_decoded_trx &trx, evmc_message &msg) {
 	std::copy(trx.to.begin(), trx.to.end(), &msg.destination.bytes[0]);;
 	msg.input_data = trx.data.data();
 	msg.input_size = trx.data.size();
@@ -376,19 +389,52 @@ void eos_evm::sub_balance(const name &eos_account, const asset &quantity) {
 	});
 }
 
+void eos_evm::add_balance(const evmc::address &address, const intx::uint256 &balance) {
+	eos_evm::tb_account _account(get_self(), get_self().value);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(address);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+
+	/// update account table token balance
+	_account.modify(*itr_eth_addr, get_self(), [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance + balance;
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
+	});
+}
+
+void eos_evm::sub_balance(const evmc::address &address, const intx::uint256 &balance) {
+	eos_evm::tb_account _account(get_self(), get_self().value);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(address);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+	/// check enough balance
+	eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eth_addr->balance.extract_as_byte_array().data()) >=
+	             balance, "overdrawn balance");
+
+	/// update account table token balance
+	_account.modify(*itr_eth_addr, get_self(), [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance - balance;
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
+	});
+}
+
 std::vector <uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
 	eosio::check(!parser.at_end(), "Transaction too short");
 	return parser.next();
 }
 
-eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
+eos_evm::rlp_decoded_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
 	std::vector <uint8_t> tx = HexToBytes(trx_code);
 	RLPParser tx_envelope_p = RLPParser(tx);
 	std::vector <uint8_t> tx_envelope = tx_envelope_p.next();
 	eosio::check(tx_envelope_p.at_end(), "There are more bytes here than one transaction");
 
 	RLPParser tx_parts_p = RLPParser(tx_envelope);
-	rlp_decode_trx transaction;
+	rlp_decoded_trx transaction;
 	transaction.nonce_v = next_part(tx_parts_p, "nonce");
 	transaction.gasPrice_v = next_part(tx_parts_p, "gas price");
 	transaction.gas_v = next_part(tx_parts_p, "start gas");
@@ -402,7 +448,7 @@ eos_evm::rlp_decode_trx eos_evm::RLPDecodeTrx(const hex_code &trx_code) {
 	return transaction;
 }
 
-std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
+std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decoded_trx &trx) {
 	auto nonce = uint256_from_vector(trx.nonce_v.data(), trx.nonce_v.size());
 	auto gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
 	auto gas = uint256_from_vector(trx.gas_v.data(), trx.gas_v.size());
@@ -462,39 +508,7 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decode_trx &trx) {
 	return unsigned_trx;
 }
 
-void eos_evm::print_vm_receipt(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
-
-	std::vector<uint8_t> create_address_v;
-	create_address_v.reserve(sizeof(evmc_address));
-	create_address_v.assign(&result.create_address.bytes[0], &result.create_address.bytes[0] + sizeof(evmc_address));
-
-	print(" \nstatus_code : ",      evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code)));
-	print(" \noutput      : ");     printhex(result.output_data, result.output_size);
-	print(" \nfrom        : ");     printhex(&sender.bytes[0], sizeof(evmc_address));
-	print(" \nto          : ");     printhex(trx.to.data(), trx.to.size());
-	print(" \nnonce       : ",      uint_from_vector(trx.nonce_v, "nonce"));
-	print(" \ngas_price   : ",      uint_from_vector(trx.gasPrice_v, "gasPrice_v"));
-	print(" \ngas_left    : ",      result.gas_left);
-	print(" \ngas_usage   : ",      uint_from_vector(trx.gas_v, "gas") - result.gas_left);
-	print(" \nvalue       : ",      uint_from_vector(trx.value, "value"));
-	print(" \ndata        : ");     printhex(trx.data.data(), trx.data.size());
-	print(" \nv           : ",      uint_from_vector(trx.v,     "v"));
-	print(" \nr           : ");     printhex(trx.r.data(), trx.r.size());
-	print(" \ns           : ");     printhex(trx.s.data(), trx.s.size());
-	print(" \ncontract    : ",      BytesToHex(create_address_v));
-	/// print eth emit logs
-	auto print_emit_logs = [&](const eos_evm::eth_log &emit_log) {
-		print(" \n address    : ");
-		printhex(&emit_log.address.bytes[0], sizeof(evmc_address));
-		print(" \n topic      : ", emit_log.topics_to_string());
-		print(" \n data       : ");
-		printhex(emit_log.data.data(), emit_log.data.size());
-	};
-	print(" \nemit log    : ");
-	std::for_each(eth_emit_logs.begin(), eth_emit_logs.end(), print_emit_logs);
-}
-
-void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decode_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
+void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
 	std::vector<uint8_t > output_data;
 	output_data.reserve(result.output_size);
 	output_data.assign(result.output_data, result.output_data + result.output_size);
