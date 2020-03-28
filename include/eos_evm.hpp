@@ -169,10 +169,10 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		void increase_nonce(const evmc_message &msg);
 		/// get code
 		std::vector<uint8_t> get_eth_code(const eth_addr_256 &eth_address);
-		/// add balance
 		void add_balance(const name& eos_account, const asset& quantity);
-		/// sub balance
 		void sub_balance(const name& eos_account, const asset& quantity);
+		void add_balance(const evmc::address &address, const intx::uint256 &balance);
+		void sub_balance(const evmc::address &address, const intx::uint256 &balance);
 	private:
 		/// address recover
 		evmc_address ecrecover(const evmc_uint256be &hash, const uint8_t version, const evmc_uint256be r, const evmc_uint256be s);

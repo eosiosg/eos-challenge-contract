@@ -389,6 +389,39 @@ void eos_evm::sub_balance(const name &eos_account, const asset &quantity) {
 	});
 }
 
+void eos_evm::add_balance(const evmc::address &address, const intx::uint256 &balance) {
+	eos_evm::tb_account _account(get_self(), get_self().value);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(address);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+
+	/// update account table token balance
+	_account.modify(*itr_eth_addr, get_self(), [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance + balance;
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
+	});
+}
+
+void eos_evm::sub_balance(const evmc::address &address, const intx::uint256 &balance) {
+	eos_evm::tb_account _account(get_self(), get_self().value);
+	eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(address);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
+	/// check enough balance
+	eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eth_addr->balance.extract_as_byte_array().data()) >=
+	             balance, "overdrawn balance");
+
+	/// update account table token balance
+	_account.modify(*itr_eth_addr, get_self(), [&](auto &the_account) {
+		intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+				the_account.balance.extract_as_byte_array().data());
+		intx::uint256 new_balance = old_balance - balance;
+		the_account.balance = intx_uint256_to_uint256_t(new_balance);
+	});
+}
+
 std::vector <uint8_t> eos_evm::next_part(RLPParser &parser, const char *label) {
 	eosio::check(!parser.at_end(), "Transaction too short");
 	return parser.next();

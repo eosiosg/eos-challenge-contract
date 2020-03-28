@@ -6,7 +6,6 @@
 #define EOS_EVM_GAS_MANAGER_HPP
 
 #include <eos_evm.hpp>
-#include <eos_evm_host.hpp>
 
 class GasManager {
 
@@ -34,7 +33,7 @@ public:
 			eosio::check(sender_balance >= msg_gas_value, "insufficient balance for gas");
 
 			/// sub balance
-			sub_balance(this->_msg.sender, msg_gas_value);
+			std::static_pointer_cast<eos_evm>(_contract)->sub_balance(this->_msg.sender, msg_gas_value);
 
 			/// add gas
 			this->_gas += intx::narrow_cast<uint64_t>(gas);
@@ -62,7 +61,7 @@ public:
 			auto remaining = this->_gas * gas_price;
 
 			if (this->_gas > 0 && gas_price > 0) {
-				add_balance(this->_msg.sender, remaining);
+				std::static_pointer_cast<eos_evm>(_contract)->add_balance(this->_msg.sender, remaining);
 			}
 		}
 	}
@@ -73,39 +72,6 @@ public:
 
 	uint64_t gas_used() {
 		return this->_initial_gas - this->_gas;
-	}
-
-	void add_balance(const evmc::address &address, const intx::uint256 &balance) {
-		eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
-		eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(this->_msg.sender);
-		auto by_eth_account_index = _account.get_index<name("byeth")>();
-		auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-
-		/// update account table token balance
-		_account.modify(*itr_eth_addr, _contract->get_self(), [&](auto &the_account) {
-			intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
-					the_account.balance.extract_as_byte_array().data());
-			intx::uint256 new_balance = old_balance + balance;
-			the_account.balance = intx_uint256_to_uint256_t(new_balance);
-		});
-	}
-
-	void sub_balance(const evmc::address &address, const intx::uint256 &balance) {
-		eos_evm::tb_account _account(_contract->get_self(), _contract->get_self().value);
-		eth_addr_256 eth_address_256 = evmc_address_to_eth_addr_256(this->_msg.sender);
-		auto by_eth_account_index = _account.get_index<name("byeth")>();
-		auto itr_eth_addr = by_eth_account_index.find(eth_address_256);
-		/// check enough balance
-		eosio::check(intx::be::unsafe::load<intx::uint256>(itr_eth_addr->balance.extract_as_byte_array().data()) >=
-		             balance, "overdrawn balance");
-
-		/// update account table token balance
-		_account.modify(*itr_eth_addr, _contract->get_self(), [&](auto &the_account) {
-			intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
-					the_account.balance.extract_as_byte_array().data());
-			intx::uint256 new_balance = old_balance - balance;
-			the_account.balance = intx_uint256_to_uint256_t(new_balance);
-		});
 	}
 
 private:
