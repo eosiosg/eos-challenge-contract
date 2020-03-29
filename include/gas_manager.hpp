@@ -7,18 +7,49 @@
 
 #include <eos_evm.hpp>
 
+const uint64_t MAX_UINT64 = std::numeric_limits<uint64_t>::max();
+const uint64_t TxGasContractCreation = 53000;
+const uint64_t TxGas = 21000;
+const uint64_t TxDataNonZeroGasEIP2028 = 16;
+const uint64_t TxDataZeroGas = 4;
+const uint64_t LogDataGas = 8;
+
 class GasManager {
 
 public:
-	GasManager(eos_evm &contract, evmc_message &message, intx::uint256 &gas_price)
-			: _msg(message), _contract(contract), _gas(0), _initial_gas(0), _gas_price(gas_price) {
+	GasManager(eos_evm &contract, eos_evm::rlp_decoded_trx &trx, evmc_message &message)
+			:_trx(trx), _msg(message), _contract(contract), _gas(0), _initial_gas(0) {
 		vm_execute_result = {};
+	}
+
+	/// IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
+	uint64_t intrinsic_gas(bool contract_creation) {
+		// Set the starting gas for the raw transaction
+		uint64_t gas = contract_creation ? TxGasContractCreation : TxGas;
+		// Bump the required gas by the amount of transactional data
+		if (_msg.input_size > 0) {
+			// Zero and non-zero bytes are priced differently
+			uint64_t non_zero = 0;
+			for(auto &byte: _trx.data) {
+				if (byte != 0) {
+					non_zero ++;
+				}
+			}
+			eosio::check((MAX_UINT64 - gas) / TxDataNonZeroGasEIP2028 > non_zero, "out of gas");
+			gas += non_zero * TxDataNonZeroGasEIP2028;
+
+			uint64_t zero = _trx.data.size() - non_zero;
+			eosio::check((MAX_UINT64 - gas) / TxDataZeroGas > zero, "out of gas");
+			gas += zero * TxDataZeroGas;
+		}
+
+		return gas;
 	}
 
 	/// buy gas
 	void buy_gas() {
 		auto gas = this->_msg.gas;
-		auto gas_price = this->_gas_price;
+		auto gas_price = uint256_from_vector(_trx.gasPrice_v.data(), _trx.gasPrice_v.size());
 		intx::uint256 msg_gas_value = gas * gas_price;
 
 		/// check balance
@@ -56,7 +87,7 @@ public:
 				refund = _msg.gas - this->vm_execute_result.gas_left;
 			};
 			this->_gas += refund;
-			auto gas_price = intx::narrow_cast<intx::uint256>(this->_gas_price);
+			auto gas_price = uint256_from_vector(_trx.gasPrice_v.data(), _trx.gasPrice_v.size());
 			auto remaining = this->_gas * gas_price;
 
 			if (this->_gas > 0 && gas_price > 0) {
@@ -67,7 +98,7 @@ public:
 
 	void set_vm_execute_result(const evmc_result &result) {
 		this->vm_execute_result = result;
-		this->use_gas(this->_gas - result.gas_left);
+		this->use_gas(_initial_gas - result.gas_left);
 	}
 
 	uint64_t gas_used() {
@@ -75,11 +106,11 @@ public:
 	}
 
 private:
+	eos_evm::rlp_decoded_trx &_trx;
 	evmc_message &_msg;
 	eos_evm &_contract;
 	uint64_t _gas;
 	uint64_t _initial_gas;
-	intx::uint256 _gas_price;
 	evmc_result vm_execute_result;
 };
 

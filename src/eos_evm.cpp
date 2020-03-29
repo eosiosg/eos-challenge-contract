@@ -107,7 +107,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 
 	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	/// force set gas price = tx_context.gas_price
-	std::copy_n(&host.tx_context.tx_gas_price.bytes[0], sizeof(trx.gasPrice_v.size()), trx.gasPrice_v.data());
+	std::copy_n(&host.tx_context.tx_gas_price.bytes[0] + sizeof(evmc::uint256be) - trx.gasPrice_v.size(), trx.gasPrice_v.size(), trx.gasPrice_v.data());
 
 	/// assert nonce
 	auto nonce = get_nonce(msg);
@@ -115,11 +115,12 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 
 	/// load gas manager
 	intx::uint256 gas_price = uint256_from_vector(trx.gasPrice_v.data(), trx.gasPrice_v.size());
-	auto gas_manager = GasManager(*this, msg, gas_price);
+	auto gas_manager = GasManager(*this, trx, msg);
 	gas_manager.buy_gas();
 	evmc_result result;
 	std::vector <uint8_t> code;
-	if (!trx.is_create_contract()) {
+	bool is_create_contract = trx.is_create_contract() ? true: false;
+	if (!is_create_contract) {
 		/// message_call
 		msg.kind = EVMC_CALL;
 		/// get eth code
@@ -134,11 +135,11 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto eth_contract_address = host.create_address(msg.sender, nonce);
 		result = host.create_contract(eth_contract_address, msg);
 	}
+	gas_manager.use_gas(gas_manager.intrinsic_gas(is_create_contract));
 	gas_manager.set_vm_execute_result(result);
 	auto gas_used = gas_manager.gas_used();
 	auto gas_fee = gas_used * gas_price;
 	eosio::check(gas_fee == 0, "gas fee must be 0");
-	gas_manager.refund_gas();
 
 	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
@@ -150,8 +151,9 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		}
 	}
 
+	gas_manager.refund_gas();
 	/// print result
-	print_vm_receipt_json(result, trx, msg.sender, host.eth_emit_logs);
+	print_vm_receipt_json(result, trx, msg.sender, gas_used, host.eth_emit_logs);
 }
 
 /// execute only on API node and do not broadcast transaction to get EVM execution receipt
@@ -508,7 +510,11 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decoded_trx &trx) {
 	return unsigned_trx;
 }
 
-void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rlp_decoded_trx &trx, const evmc_address &sender, const std::vector<eos_evm::eth_log> &eth_emit_logs) {
+void eos_evm::print_vm_receipt_json(const evmc_result &result,
+		const eos_evm::rlp_decoded_trx &trx,
+		const evmc_address &sender,
+		const uint64_t &gas_used,
+		const std::vector<eos_evm::eth_log> &eth_emit_logs) {
 	std::vector<uint8_t > output_data;
 	output_data.reserve(result.output_size);
 	output_data.assign(result.output_data, result.output_data + result.output_size);
@@ -553,8 +559,8 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result, const eos_evm::rl
 	vm_receipt += "\"to\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.to);  vm_receipt += "\",";
 	vm_receipt += "\"nonce\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.nonce_v, "nonce"));  vm_receipt += "\",";
 	vm_receipt += "\"gas_price\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v"));  vm_receipt += "\",";
-	vm_receipt += "\"gas_left\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(result.gas_left);  vm_receipt += "\",";
-	vm_receipt += "\"gas_usage\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gas_v, "gas") - result.gas_left);  vm_receipt += "\",";
+	vm_receipt += "\"gas_left\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gas_v, "gas") - gas_used);  vm_receipt += "\",";
+	vm_receipt += "\"gas_usage\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(gas_used);  vm_receipt += "\",";
 	vm_receipt += "\"value\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.value);  vm_receipt += "\",";
 	vm_receipt += "\"data\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.data);  vm_receipt += "\",";
 	vm_receipt += "\"v\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.v, "v"));  vm_receipt += "\",";
