@@ -49,7 +49,8 @@ a. create
 
 - Declaration: 
 ```c
-[[eosio::action]] void create(const name &eos_account, const binary_extension<std::string> &eth_address);
+[[eosio::action]]
+void create(const name &eos_account, const binary_extension<std::string> &eth_address);
 ```
 
 - Inputs
@@ -77,7 +78,8 @@ b. raw
 
 - Declaration: 
 ```c
-[[eosio::action]] void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+[[eosio::action]]
+void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 ```
 
 - Inputs
@@ -111,7 +113,8 @@ c. simulate
 
 - Declaration:
 ```c
-[[eosio::action]] void simulate(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+[[eosio::action]]
+void simulate(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
 ```
 
 - Inputs
@@ -155,7 +158,8 @@ e. withdraw
 
 - Declaration: 
 ```c
-[[eosio::action]] void withdraw(const name &eos_account, const asset &amount);
+[[eosio::action]]
+void withdraw(const name &eos_account, const asset &amount);
 ```
 
 - Input 
@@ -173,7 +177,8 @@ f. linktoken
 
 - Declaration: 
 ```c
-[[eosio::action]] void linktoken(const extended_symbol &contract);
+[[eosio::action]]
+void linktoken(const extended_symbol &contract);
 ```
 
 - Input
@@ -189,22 +194,23 @@ g. log
 
 - Declaration: 
 ```c
-[[eosio::action]] void log(const std::string &status_code, 
-				 const std::string &output, 
-				 const std::string &from,
-				 const std::string &to,
-				 const std::string &nonce, 
-				 const std::string &gas_price, 
-				 const std::string &gas_left, 
-				 const std::string &gas_usage, 
-				 const std::string &value, 
-				 const std::string &data, 
-				 const std::string &v, 
-				 const std::string &r, 
-				 const std::string &s, 
-				 const std::string &contract, 
-				 const std::string &eth_emit_logs
-				);
+[[eosio::action]]
+void log(const std::string &status_code, 
+	 const std::string &output, 
+	 const std::string &from,
+         const std::string &to,
+	 const std::string &nonce, 
+	 const std::string &gas_price, 
+	 const std::string &gas_left, 
+	 const std::string &gas_usage, 
+	 const std::string &value, 
+	 const std::string &data, 
+	 const std::string &v, 
+	 const std::string &r, 
+	 const std::string &s, 
+	 const std::string &contract, 
+	 const std::string &eth_emit_logs
+);
 ```
 	
 - Input
