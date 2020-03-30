@@ -33,13 +33,13 @@ An EOSIO token balance (aka SYS)
 
 ### Implementation 1:
 ```c
-		struct [[eosio::table("eos_evm")]] st_account {
-			uint64_t           id;
-			eth_addr_160       eth_address;
-			uint256_t          nonce;
-			uint256_t          balance;
-			name               eosio_account;
-		};
+struct [[eosio::table("eos_evm")]] st_account {
+	uint64_t           id;
+	eth_addr_160       eth_address;
+	uint256_t          nonce;
+	uint256_t          balance;
+	name               eosio_account;
+};
 ```
 
 ### Requirement 2: 
@@ -55,11 +55,11 @@ A 256bit value
 
 ### Implementation 2:
 ```c
-		struct [[eosio::table("eos_evm")]] st_account_state {
-		    uint64_t           id;
-			uint256_t          key;
-			uint256_t          value;
-		};
+struct [[eosio::table("eos_evm")]] st_account_state {
+	uint64_t           id;
+	uint256_t          key;
+	uint256_t          value;
+};
 ```
 
 ### Requirement 3:
@@ -75,11 +75,11 @@ EVM bytecode associated with the account
 ### Implementation 3:
 
 ```c
-		struct [[eosio::table("eos_evm")]] st_account_code {
-		  	uint64_t             id;
-			eth_addr_160         eth_address;
-			std::vector<uint8_t> bytecode;
-		};
+struct [[eosio::table("eos_evm")]] st_account_code {
+	uint64_t             id;
+	eth_addr_160         eth_address;
+	std::vector<uint8_t> bytecode;
+};
 ```
 
 ### Requirement 4: 
