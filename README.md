@@ -87,13 +87,12 @@ struct [[eosio::table("eos_evm")]] st_account_code {
 ```
 The Application MUST execute EVM transactions as faithfully to the Ethereum Yellow Paper as possible with the following notes:
 
-* There will be no effective BLOCK gas limit. Instructions that return block limit should
-return a sufficiently large supply
-* The TRANSACTION gas limit will be enforced
-* The sender WILL NOT be billed for the gas, the gas price MAY, therefore, be locked at some suitable value
-* All other gas mechanics/instructions should be maintained
-* Block number and timestamp should represent the native EOSIO block number and time
-* Block hash, coinbase, and difficulty should return static values
+There will be no effective BLOCK gas limit. Instructions that return block limit should return a sufficiently large supply
+The TRANSACTION gas limit will be enforced
+The sender WILL NOT be billed for the gas, the gas price MAY, therefore, be locked at some suitable value
+All other gas mechanics/instructions should be maintained
+Block number and timestamp should represent the native EOSIO block number and time
+Block hash, coinbase, and difficulty should return static values
 ```
 ### Interpretation 4:
 
@@ -127,15 +126,15 @@ return a sufficiently large supply
 The Application MUST implement an action named “raw”
 
 Whose inputs are
-	A binary Ethereum transaction encoded as it appears in a serialized Ethereum block
-	[optional] A 160bit account identifier “Sender”
+A binary Ethereum transaction encoded as it appears in a serialized Ethereum block
+[optional] A 160bit account identifier “Sender”
 Which results in
-	Appropriate Updates to Account, Account State, and Account Code Tables reflecting the application of the transaction
-    Log output (via EOSIO print intrinsics)
+Appropriate Updates to Account, Account State, and Account Code Tables reflecting the application of the transaction
+Log output (via EOSIO print intrinsics)
 IF the “R” and “S” values of the transaction are NOT 0
-	A transaction containing this action must fail if the signature (V, R, S) within the input does not recover to a valid and known 160bit account identifier in the Accounts Table
+A transaction containing this action must fail if the signature (V, R, S) within the input does not recover to a valid and known 160bit account identifier in the Accounts Table
 IF the “R” and “S” values of the transaction are 0
-	A transaction containing this action must fail if “Sender” input parameter is not present or does not refer to a valid and known 160bit account identifier in the Accounts Table
+A transaction containing this action must fail if “Sender” input parameter is not present or does not refer to a valid and known 160bit account identifier in the Accounts Table
 If the associated entry in the Accounts Table has no Associated EOSIO Account
 OR if the transaction has not been authorized by the Associated EOSIO Account
 ```
@@ -181,11 +180,11 @@ void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender)
 The Application MUST implement an action named “create”
 
 Whose inputs are
-  An EOSIO account
-  An arbitrary-length string
+An EOSIO account
+An arbitrary-length string
 Which results in a new Account Table entry with
-  Balance = 0
-  Nonce = 1
+Balance = 0
+Nonce = 1
 Account identifier = the rightmost 160 bits of the Keccak hash of the RLP encoding of the structure containing only the EOSIO account name and the arbitrary input string
 A transaction containing this action must fail if it is not authorized by the EOSIO account listed in the inputs
 A transaction containing this action must fail if an Account Table entry exists with this EOSIO account associated
@@ -243,11 +242,11 @@ void ontransfer(const name &from, const name &to, const asset &quantity, const s
 The Application MUST implement an action named “withdraw”
 
 Whose inputs are
-   An EOSIO account
-   A token amount
+An EOSIO account
+A token amount
 Which results in
-   Deducting the amount from the associated Account Table entry’s balance
-   Sending an inline EOSIO token transfer for the amount to the EOSIO account
+Deducting the amount from the associated Account Table entry’s balance
+Sending an inline EOSIO token transfer for the amount to the EOSIO account
 A transaction containing this action must fail if it is not authorized by the EOSIO account listed in the inputs OR if such a withdrawal would leave the Account Table entry’s balance negative
 ```
 
@@ -340,14 +339,3 @@ This MAY be done with an additional initialization action
 	 const std::string &eth_emit_logs
 	);
 	```
-	
-	
-	
-	
-	
-	
-	
-	
-	
-
- 
