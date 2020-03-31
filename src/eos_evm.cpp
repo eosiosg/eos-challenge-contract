@@ -224,6 +224,35 @@ void eos_evm::withdraw(const name &eos_account, const asset &quantity) {
 	).send();
 }
 
+void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, std::string &data, std::string &gas, std::string &gasPrice, std::string &origin, std::string &value) {
+	/// remove 0x
+	auto _address = HexToBytes(address.substr(2, caller.size() - 2));
+	auto _caller = HexToBytes(caller.substr(2, caller.size() - 2));
+	auto _code = HexToBytes(code.substr(2, code.size() - 2));
+	auto _data = HexToBytes(data.substr(2, data.size() - 2));
+	auto _gas = HexToBytes(gas.substr(2, gas.size() - 2));
+	auto _gasPrice= HexToBytes(gasPrice.substr(2, gasPrice.size() - 2));
+	auto _origin = HexToBytes(origin.substr(2, origin.size() - 2));
+	auto _value = HexToBytes(value.substr(2, value.size() - 2));
+
+	evmc_message msg = {};
+	std::copy(_address.begin(), _address.end(), &msg.destination.bytes[0]);;
+	msg.input_data = _data.data();
+	msg.input_size = _data.size();
+	auto value_256 = uint256_from_vector(_value.data(), _value.size());
+	msg.value = intx::be::store<evmc_uint256be>(value_256);
+	msg.gas = uint_from_vector(_gas, "gas");
+
+	evmc_revision rev = EVMC_ISTANBUL;
+	auto vm = evmc_create_evmone();
+	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
+	evmc_result result = vm->execute(vm, &host.get_interface(), host.to_context(), rev, &msg, _code.data(),
+	                                 _code.size());
+	auto gas_used = uint_from_vector(_gas, "gas") - result.gas_left;
+	print_vm_receipt_json(result, {}, zero_address, gas_used, {});
+}
+
+
 eth_addr_160 eos_evm::create_eth_address(const name &eos_account, std::string &eth_address) {
 	/// rlp encode
 	std::string eos_str = eos_account.to_string();

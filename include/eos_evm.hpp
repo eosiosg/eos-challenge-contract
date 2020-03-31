@@ -4,6 +4,7 @@
 #include <eosio/crypto.hpp>
 #include <eosio/singleton.hpp>
 #include <eosio/binary_extension.hpp>
+#include <eosio/transaction.hpp>
 
 #include <evmone/execution.hpp>
 #include <evmone/evmone.h>
@@ -52,6 +53,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 				 const std::string &contract,
 				 const std::string &eth_emit_logs
 				);
+		[[eosio::action]]
+		void rawtest(std::string address, std::string &caller, hex_code &code, std::string &data, std::string &gas, std::string &gasPrice, std::string &origin, std::string &value);
 
 	public:
 
