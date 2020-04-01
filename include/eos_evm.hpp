@@ -54,6 +54,12 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 				 const std::string &eth_emit_logs
 				);
 		[[eosio::action]]
+		void getblocknum() {
+			print(" \n", eosio::tapos_block_num());
+			print(" \n", eosio::tapos_block_prefix());
+		}
+
+		[[eosio::action]]
 		void rawtest(std::string address, std::string &caller, hex_code &code, std::string &data, std::string &gas, std::string &gasPrice, std::string &origin, std::string &value);
 
 	public:

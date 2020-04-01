@@ -235,6 +235,9 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 	auto _origin = HexToBytes(origin.substr(2, origin.size() - 2));
 	auto _value = HexToBytes(value.substr(2, value.size() - 2));
 
+	rlp_decoded_trx trx;
+	trx.gas_v.assign(_gas.begin(), _gas.end());
+
 	evmc_message msg = {};
 	std::copy(_address.begin(), _address.end(), &msg.destination.bytes[0]);;
 	msg.input_data = _data.data();
@@ -243,13 +246,13 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 	msg.value = intx::be::store<evmc_uint256be>(value_256);
 	msg.gas = uint_from_vector(_gas, "gas");
 
-	evmc_revision rev = EVMC_ISTANBUL;
+	evmc_revision rev = EVMC_BYZANTIUM;
 	auto vm = evmc_create_evmone();
 	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	evmc_result result = vm->execute(vm, &host.get_interface(), host.to_context(), rev, &msg, _code.data(),
 	                                 _code.size());
-	auto gas_used = uint_from_vector(_gas, "gas") - result.gas_left;
-	print_vm_receipt_json(result, {}, zero_address, gas_used, {});
+	auto gas_left = result.gas_left;
+	print_vm_receipt_json(result, trx, zero_address, gas_left, {});
 }
 
 
@@ -542,7 +545,7 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decoded_trx &trx) {
 void eos_evm::print_vm_receipt_json(const evmc_result &result,
 		const eos_evm::rlp_decoded_trx &trx,
 		const evmc_address &sender,
-		const uint64_t &gas_used,
+		const uint64_t &gas_left,
 		const std::vector<eos_evm::eth_log> &eth_emit_logs) {
 	std::vector<uint8_t > output_data;
 	output_data.reserve(result.output_size);
@@ -588,8 +591,8 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result,
 	vm_receipt += "\"to\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.to);  vm_receipt += "\",";
 	vm_receipt += "\"nonce\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.nonce_v, "nonce"));  vm_receipt += "\",";
 	vm_receipt += "\"gas_price\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gasPrice_v, "gasPrice_v"));  vm_receipt += "\",";
-	vm_receipt += "\"gas_left\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gas_v, "gas") - gas_used);  vm_receipt += "\",";
-	vm_receipt += "\"gas_usage\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(gas_used);  vm_receipt += "\",";
+	vm_receipt += "\"gas_left\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(gas_left);  vm_receipt += "\",";
+	vm_receipt += "\"gas_usage\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.gas_v, "gas") - gas_left);  vm_receipt += "\",";
 	vm_receipt += "\"value\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.value);  vm_receipt += "\",";
 	vm_receipt += "\"data\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(trx.data);  vm_receipt += "\",";
 	vm_receipt += "\"v\": ";  vm_receipt += "\"";  vm_receipt += std::to_string(uint_from_vector(trx.v, "v"));  vm_receipt += "\",";
