@@ -12,6 +12,8 @@ cleos -u ${remote} push action ${contract} linktoken '[{"sym":"4,EOS", "contract
 # create account
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', "aaaaaa"]' -p ${accountb}
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p ${accountb}
+cleos -u ${remote} push action ${contract} create '['"${accountb}"', cd1722f2947def4cf144679da39c4c32bdc35681]' -p ${accountb}
+cleos -u ${remote} push action ${contract} create '['"${accountb}"', 0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6]' -p ${accountb}
 cleos -u ${remote} push action ${contract} create '['"${accountc}"', "aaaaaa"]' -p ${accountc}
 cleos -u ${remote} push action ${contract} create '['"${accountc}"', 39944247c2edf660d86d57764b58d83b8eee9014]' -p ${accountc}
 cleos -u ${remote} push action ${contract} create '['"${accountd}"', "aaaaaa"]' -p ${accountd}
@@ -45,3 +47,16 @@ cleos -u ${remote} push action ${contract}  raw '["f8cb038609184e72a000830271009
 #---balance of ${accountc} 39944247c2edf660d86d57764b58d83b8eee9014 Serialized TX----
 cleos -u ${remote} push action ${contract}  raw '["f88a048609184e72a00083027100944a40687878845ef7cfe60b5a6f2cb47627469b7780a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901426a097ee590fb039368f035b9b31ea06d8ab7461d0647fd8fd5d63f659ce4e5241dba01a9af9395bcc3183380edde0d9397ca4dd0a0dedb7136971d72c6c080301218c"]' -p ${accountb}
 #--------------------
+
+
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x60026002600108600055", "0x", "0x0186a0", "0x5af3107a4000", "0xd81f4358cb8cab53d005e7f47c7ba3f5116000a6", "0x0de0b6b3a7640000"]' -p $accountb
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x60036000036001600408600055", "0x", "0x0186a0", "0x5af3107a4000", "0xd81f4358cb8cab53d005e7f47c7ba3f5116000a6", "0x0de0b6b3a7640000"]' -p $accountb
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x60006001600408600055", "0x", "0x0186a0", "0x5af3107a4000", "0xd81f4358cb8cab53d005e7f47c7ba3f5116000a6", "0x0de0b6b3a7640000"]' -p $accountb
+#expPowerOf256Of256_11
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x600b6101000a6101000a600055600b60ff0a6101000a600155600b6101010a6101000a600255600b6101000a60ff0a600355600b60ff0a60ff0a600455600b6101010a60ff0a600555600b6101000a6101010a600655600b60ff0a6101010a600755600b6101010a6101010a600855", "0x", "0x0f4240", "0x5af3107a4000", "0xd81f4358cb8cab53d005e7f47c7ba3f5116000a6", "0x0de0b6b3a7640000"]' -p $accountb
+#exp5
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x60016101010a60005500", "0x", "0x0186a0", "0x5af3107a4000", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x0de0b6b3a7640000"]' -p $accountb
+#expPowerOf256Of256_29
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x601d6101000a6101000a600055601d60ff0a6101000a600155601d6101010a6101000a600255601d6101000a60ff0a600355601d60ff0a60ff0a600455601d6101010a60ff0a600555601d6101000a6101010a600655601d60ff0a6101010a600755601d6101010a6101010a600855", "0x", "0x0f4240", "0x5af3107a4000", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x0de0b6b3a7640000"]' -p $accountb
+#expPowerOf256Of256_4
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x60046101000a6101000a600055600460ff0a6101000a60015560046101010a6101000a60025560046101000a60ff0a600355600460ff0a60ff0a60045560046101010a60ff0a60055560046101000a6101010a600655600460ff0a6101010a60075560046101010a6101010a600855", "0x", "0x0f4240", "0x5af3107a4000", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x0de0b6b3a7640000"]' -p $accountb

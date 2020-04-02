@@ -4,6 +4,7 @@
 
 #include <eos_evm_host.hpp>
 #include <gas_manager.hpp>
+#include <mocked_host.hpp>
 
 const evmc_address zero_address{{0}};
 
@@ -224,6 +225,16 @@ void eos_evm::withdraw(const name &eos_account, const asset &quantity) {
 	).send();
 }
 
+void eos_evm::clearstate(uint8_t scope) {
+	require_auth(_self);
+
+	eos_evm::tb_account_state _account_state(_self, scope);
+	auto itr_state = _account_state.begin();
+	while(itr_state != _account_state.end()) {
+		itr_state = _account_state.erase(itr_state);
+	}
+}
+
 void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, std::string &data, std::string &gas, std::string &gasPrice, std::string &origin, std::string &value) {
 	/// remove 0x
 	auto _address = HexToBytes(address.substr(2, caller.size() - 2));
@@ -246,7 +257,7 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 	msg.value = intx::be::store<evmc_uint256be>(value_256);
 	msg.gas = uint_from_vector(_gas, "gas");
 
-	evmc_revision rev = EVMC_BYZANTIUM;
+	evmc_revision rev = EVMC_FRONTIER;
 	auto vm = evmc_create_evmone();
 	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	evmc_result result = vm->execute(vm, &host.get_interface(), host.to_context(), rev, &msg, _code.data(),
