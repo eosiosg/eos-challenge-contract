@@ -4,7 +4,6 @@
 
 #include <eos_evm_host.hpp>
 #include <gas_manager.hpp>
-#include <mocked_host.hpp>
 
 const evmc_address zero_address{{0}};
 
@@ -151,6 +150,10 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 			host.transfer(msg, result);
 		}
 	}
+	/// because create contract already removed dirty state data
+	if (result.status_code != EVMC_SUCCESS && !is_create_contract) {
+		revert_state(host.storage_history_records);
+	}
 
 	gas_manager.refund_gas();
 	/// print result
@@ -262,6 +265,10 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
 	evmc_result result = vm->execute(vm, &host.get_interface(), host.to_context(), rev, &msg, _code.data(),
 	                                 _code.size());
+
+	if (result.status_code == EVMC_REVERT) {
+		revert_state(host.storage_history_records);
+	}
 	auto gas_left = result.gas_left;
 	print_vm_receipt_json(result, trx, zero_address, gas_left, {});
 }
@@ -551,6 +558,59 @@ std::vector <uint8_t> eos_evm::RLPEncodeTrx(const rlp_decoded_trx &trx) {
 
 	std::vector <uint8_t> unsigned_trx = unsigned_trx_builder.build();
 	return unsigned_trx;
+}
+
+void eos_evm::revert_state(storage_records &storage_history_records) {
+	tb_account _account(_self, _self.value);
+	auto by_eth_account_index = _account.get_index<name("byeth")>();
+	auto itr_record = storage_history_records.begin();
+	while( itr_record != storage_history_records.end()) {
+		auto address = itr_record->first;
+		auto eth_address_256 = evmc_address_to_eth_addr_256(address);
+		/// find scope for address
+		auto state_scope = by_eth_account_index.find(eth_address_256)->id;
+		tb_account_state _account_state(_self, state_scope);
+		auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
+		/// loop revert value with storage_status
+		auto storage_map = storage_history_records[address];
+		auto itr_storage = storage_map.begin();
+		while ( itr_storage != storage_map.end()) {
+			/// get key
+			evmc::bytes32 key = itr_storage->first;
+			std::array<uint8_t, 32> key_array;
+			std::copy(&key.bytes[0], &key.bytes[0] + sizeof(evmc::bytes32), key_array.begin());
+			uint256_t key_eosio = eosio::fixed_bytes<32>(key_array);
+			auto itr_state = by_eth_account_state_index.find(key_eosio);
+
+			/// transit value
+			auto origin_value_evmc = std::get<0>(storage_map[key]);
+			std::array<uint8_t, 32> origin_value_array;
+			std::copy(&origin_value_evmc.bytes[0], &origin_value_evmc.bytes[0] + sizeof(evmc::bytes32), origin_value_array.begin());
+			uint256_t origin_value = eosio::fixed_bytes<32>(origin_value_array);
+
+			/**
+			 * if EVMC_STORAGE_ADDED need to erase
+			 * if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin
+			 * if EVMC_STORAGE_DELETED need to emplace
+			 * */
+			auto storage_status = std::get<1>(storage_map[key]);
+			if (storage_status == EVMC_STORAGE_ADDED) {
+				by_eth_account_state_index.erase(itr_state);
+			} else if (storage_status == EVMC_STORAGE_MODIFIED || storage_status == EVMC_STORAGE_MODIFIED_AGAIN) {
+				_account_state.modify(*itr_state, eosio::same_payer, [&](auto &the_state) {
+					the_state.value =  origin_value;
+				});
+			} else if (storage_status == EVMC_STORAGE_DELETED) {
+				_account_state.emplace(_self, [&](auto &the_state) {
+					the_state.id = _account_state.available_primary_key();
+					the_state.key = key_eosio;
+					the_state.value = origin_value;
+				});
+			}
+			itr_storage++;
+		}
+		itr_record++;
+	}
 }
 
 void eos_evm::print_vm_receipt_json(const evmc_result &result,

@@ -187,7 +187,8 @@ class [[eosio::contract("eos_evm")]] eos_evm : public contract {
 		std::vector<uint8_t> RLPEncodeTrx(const rlp_decoded_trx &trx);
 		/// keccak hash
 		evmc_uint256be gen_unsigned_trx_hash(const std::vector<uint8_t> &unsigned_trx);
-
+		/// revert state
+		void revert_state(storage_records &storage_history_records);
 		/// print receipt
 		void print_vm_receipt_json(const evmc_result &result,
 				const eos_evm::rlp_decoded_trx &trx,
