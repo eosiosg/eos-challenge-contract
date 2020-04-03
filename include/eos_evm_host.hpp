@@ -33,7 +33,7 @@ namespace evmc {
 		/// eth emit logs
 		std::vector <eos_evm::eth_log> eth_emit_logs = {};
 
-		std::map<address, std::map<bytes32, std::tuple<bytes32, evmc_storage_status, bool>>> storage_history_records;
+		storage_records storage_history_records;
 
 		evmc_result create_contract(const address &eth_contract_addr, const evmc_message &message) {
 			eosio::check(message.kind == EVMC_CREATE, "message kind must be create");
