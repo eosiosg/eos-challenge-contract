@@ -8,6 +8,7 @@
 #include <intx.hpp>
 #include <math.h>
 #include <limits>
+#include <evmc/evmc.hpp>
 
 
 using bytes = std::basic_string<uint8_t>;
@@ -16,6 +17,7 @@ using eth_addr_256 = eosio::checksum256;
 using binary_code = std::vector<uint8_t>;
 using hex_code = std::string;
 using uint256_t = eosio::checksum256;
+typedef std::map<evmc::address, std::map<evmc::bytes32, std::tuple<evmc::bytes32, evmc_storage_status, bool>>> storage_records;
 /// init nonce
 const std::array<uint8_t,32> ONE_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1};
 const eosio::fixed_bytes<32> INIT_NONCE(ONE_IN_BYTES);

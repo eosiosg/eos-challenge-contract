@@ -33,6 +33,8 @@ namespace evmc {
 		/// eth emit logs
 		std::vector <eos_evm::eth_log> eth_emit_logs = {};
 
+		storage_records storage_history_records;
+
 		evmc_result create_contract(const address &eth_contract_addr, const evmc_message &message) {
 			eosio::check(message.kind == EVMC_CREATE, "message kind must be create");
 			eosio::check(message.input_size > 0, "message input size must be > 0");
@@ -214,10 +216,27 @@ namespace evmc {
 			return {};
 		}
 
+		void record_set_storage_history (const address &addr,
+				const bytes32 &key,
+				const bytes32 &value,
+				const evmc_storage_status &status,
+				const bool &dirty = false) {
+			if (storage_history_records.find(addr) == storage_history_records.end()) {
+				std::map<bytes32, std::tuple<bytes32, evmc_storage_status, bool>> storage_history_entry;
+				storage_history_entry[key] = std::make_tuple(value, status, dirty);
+				storage_history_records[addr] = storage_history_entry;
+			} else {
+				storage_history_records[addr][key] = std::make_tuple(value, status, dirty);
+			}
+		}
 		/// Set the account's storage value (EVMC Host method).
 		evmc_storage_status set_storage(const address &addr,
 		                                const bytes32 &key,
 		                                const bytes32 &value) noexcept override {
+			evmc_storage_status status{};
+			/// record storage_history for revert and dirty flag
+			record_set_storage_history(addr, key, value, status, false);
+
 			/// copy address to _addr(eth_addr_256)
 			eth_addr_256 _addr = evmc_address_to_eth_addr_256(addr);
 			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
@@ -233,33 +252,47 @@ namespace evmc {
 			std::array<uint8_t, 32> key_array;
 			std::copy(&key.bytes[0], &key.bytes[0] + sizeof(bytes32), key_array.begin());
 			uint256_t key_eosio = eosio::fixed_bytes<32>(key_array);
-			auto itr_eth_addr_state = by_eth_account_state_index.find(key_eosio);
+			auto itr_old = by_eth_account_state_index.find(key_eosio);
 			/// value to checksum256
 			std::array<uint8_t, 32> new_value_array;
-			std::copy(&value.bytes[0], &value.bytes[0] + 32, new_value_array.begin());
-			uint256_t new_value_eosio = eosio::fixed_bytes<32>(new_value_array);
+			std::copy(&value.bytes[0], &value.bytes[0] + sizeof(bytes32), new_value_array.begin());
+			uint256_t new_value = eosio::fixed_bytes<32>(new_value_array);
 
-			evmc_storage_status status{};
-			if (itr_eth_addr_state == by_eth_account_state_index.end()) {
-				_account_state.emplace(_contract.get_self(), [&](auto &the_state) {
-					the_state.id = _account_state.available_primary_key();
-					the_state.key = key_eosio;
-					the_state.value = new_value_eosio;
-				});
-				status = EVMC_STORAGE_ADDED;
-				return status;
-			} else {
-				auto old_value = itr_eth_addr_state->value;
-				if (old_value == new_value_eosio) {
-					status = EVMC_STORAGE_UNCHANGED;
-					return status;
+			auto dirty = std::get<2>(storage_history_records[addr][key]);
+			if (!dirty) {
+				/// set dirty = true;
+				std::get<2>(storage_history_records[addr][key]) = true;
+				if (itr_old == by_eth_account_state_index.end() && new_value_array != ZERO_IN_BYTES) {
+					_account_state.emplace(_contract.get_self(), [&](auto &the_state) {
+						the_state.id = _account_state.available_primary_key();
+						the_state.key = key_eosio;
+						the_state.value = new_value;
+					});
+					status = EVMC_STORAGE_ADDED;
+				} else {
+					auto old_value = itr_old->value;
+					if (old_value == new_value) {
+						status = EVMC_STORAGE_UNCHANGED;
+					} else if (new_value_array != ZERO_IN_BYTES) {
+						_account_state.modify(*itr_old, eosio::same_payer, [&](auto &the_state) {
+							the_state.value = new_value;
+						});
+						status = EVMC_STORAGE_MODIFIED;
+					} else {
+						by_eth_account_state_index.erase(itr_old);
+						status = EVMC_STORAGE_DELETED;
+					}
 				}
-				_account_state.modify(*itr_eth_addr_state, eosio::same_payer, [&](auto &the_state) {
-					the_state.value = new_value_eosio;
-				});
-				status = EVMC_STORAGE_MODIFIED;
-				return status;
+			} else {
+				if (new_value_array != ZERO_IN_BYTES) {
+					_account_state.modify(*itr_old, eosio::same_payer, [&](auto &the_state) {
+						the_state.value = new_value;
+					});
+					status = EVMC_STORAGE_MODIFIED_AGAIN;
+				}
 			}
+			std::get<1>(storage_history_records[addr][key]) = status;
+			return status;
 		}
 
 		/// Get the account's balance (EVMC Host method).
