@@ -707,9 +707,8 @@ std::string eos_evm::eth_log::topics_to_string() const {
 		topics_str += "\"";
 		if (i != topics.size() - 1) {
 			topics_str += ",";
-		} else {
-			topics_str += "]";
 		}
 	}
+	topics_str += "]";
 	return topics_str;
 }
