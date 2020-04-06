@@ -254,6 +254,7 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 
 	evmc_message msg = {};
 	std::copy(_address.begin(), _address.end(), &msg.destination.bytes[0]);;
+	std::copy(_caller.begin(), _caller.end(), &msg.sender.bytes[0]);;
 	msg.input_data = _data.data();
 	msg.input_size = _data.size();
 	auto value_256 = uint256_from_vector(_value.data(), _value.size());
@@ -270,7 +271,7 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 		revert_state(host.storage_history_records);
 	}
 	auto gas_left = result.gas_left;
-	print_vm_receipt_json(result, trx, zero_address, gas_left, {});
+	print_vm_receipt_json(result, trx, msg.sender, gas_left, host.eth_emit_logs);
 }
 
 
