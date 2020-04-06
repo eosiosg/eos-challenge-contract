@@ -1408,7 +1408,7 @@ constexpr op_table create_op_table_istanbul() noexcept
 }
 
 constexpr op_table op_tables[] = {
-//    create_op_table_frontier(),           // Frontier
+    create_op_table_frontier(),           // Frontier
 //    create_op_table_homestead(),          // Homestead
 //    create_op_table_tangerine_whistle(),  // Tangerine Whistle
 //    create_op_table_tangerine_whistle(),  // Spurious Dragon
@@ -1424,6 +1424,6 @@ constexpr op_table op_tables[] = {
 
 EVMC_EXPORT const op_table& get_op_table(evmc_revision rev) noexcept
 {
-    return op_tables[0];
+    return op_tables[rev];
 }
 }  // namespace evmone
