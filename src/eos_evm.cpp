@@ -138,6 +138,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	gas_manager.use_gas(gas_manager.intrinsic_gas(is_create_contract));
 	gas_manager.set_vm_execute_result(result);
 	auto gas_used = gas_manager.gas_used();
+	auto gas_left = msg.gas - gas_used;
 	auto gas_fee = gas_used * gas_price;
 	eosio::check(gas_fee == 0, "gas fee must be 0");
 
@@ -157,7 +158,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 
 	gas_manager.refund_gas();
 	/// print result
-	print_vm_receipt_json(result, trx, msg.sender, gas_used, host.eth_emit_logs);
+	print_vm_receipt_json(result, trx, msg.sender, gas_left, host.eth_emit_logs);
 }
 
 /// execute only on API node and do not broadcast transaction to get EVM execution receipt
@@ -633,8 +634,8 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result,
 
 	/// eth_emit_logs to json string
 	std::string eth_emit_logs_json;
+	eth_emit_logs_json += "\"emit logs\" : [";
 	for (int i = 0; i < eth_emit_logs.size(); ++i) {
-		eth_emit_logs_json += "\"emit logs\" : [";
 		eth_emit_logs_json += "{\"address\" :";
 
 		std::vector<uint8_t> emit_address_v;
@@ -649,13 +650,12 @@ void eos_evm::print_vm_receipt_json(const evmc_result &result,
 		eth_emit_logs_json += "\"data\": ";
 		eth_emit_logs_json += "\"";
 		eth_emit_logs_json += BytesToHex(eth_emit_logs[i].data);
-		eth_emit_logs_json += "\"";
+		eth_emit_logs_json += "\"}";
 		if (i != eth_emit_logs.size() - 1) {
 			eth_emit_logs_json += ",";
-		} else {
-			eth_emit_logs_json += "}]";
 		}
 	}
+	eth_emit_logs_json += "]";
 
 	std::string vm_receipt = "{\"status_code\": ";  vm_receipt += "\"";  vm_receipt += evmc::get_evmc_status_code_map().at(static_cast<int>(result.status_code));  vm_receipt +=  "\"," ;
 	vm_receipt += "\"output\": ";  vm_receipt += "\"";  vm_receipt += BytesToHex(output_data);  vm_receipt += "\",";
