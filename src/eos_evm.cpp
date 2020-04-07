@@ -105,7 +105,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		require_auth(itr_eth_addr->eosio_account);
 	}
 
-	evmc::EOSHostContext host = evmc::EOSHostContext(*this);
+	evmc::EOSHostContext host = evmc::EOSHostContext(*this, msg.sender);
 	/// force set gas price = tx_context.gas_price
 	std::copy_n(&host.tx_context.tx_gas_price.bytes[0] + sizeof(evmc::uint256be) - trx.gasPrice_v.size(), trx.gasPrice_v.size(), trx.gasPrice_v.data());
 
