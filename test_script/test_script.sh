@@ -119,3 +119,7 @@ cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec
 #time
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x4260005500", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
 
+#origin
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x3260005500", "0x", "0x174876e800", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
+#calldatacopy_sec
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x6005565b005b6042601f536101036000601f3760005180606014600357640badc0ffee60ff55", "0x1234567890abcdef01234567890abcdef0", "0x174876e800", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
