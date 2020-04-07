@@ -17,6 +17,8 @@ cleos -u $remote push action eosio updateauth '['"${contract}"',"active","owner"
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', "aaaaaa"]' -p ${accountb}
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p ${accountb}
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', cd1722f2947def4cf144679da39c4c32bdc35681]' -p ${accountb}
+cleos -u ${remote} push action ${contract} create '['"${accountb}"', cd1722f3947def4cf144679da39c4c32bdc35681]' -p ${accountb}
+
 cleos -u ${remote} push action ${contract} create '['"${accountb}"', 0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6]' -p ${accountb}
 cleos -u ${remote} push action ${contract} create '['"${accountc}"', "aaaaaa"]' -p ${accountc}
 cleos -u ${remote} push action ${contract} create '['"${accountc}"', 39944247c2edf660d86d57764b58d83b8eee9014]' -p ${accountc}
@@ -100,7 +102,7 @@ cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x603760005360005160005560216000f300", "0xaa", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
 
 #return0
-cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x603760005360005160005560016000f300", "0xaa", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
+cleos push action $contract rawtest '["0xcd1722f3947def4cf144679da39c4c32bdc35681", "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0x603760005360005160005560016000f3", "0xaa", "0x0186a0", "0x0c", "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0x17"]' -p $accountb
 
 #log0_emptyMem
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x60006000a000", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
@@ -108,4 +110,12 @@ cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec
 
 #log_2logs
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff60005260206000a060106002a000", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
+
+
+#coinbase
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x4160005500", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
+#number
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x4360005500", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
+#time
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x4260005500", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
 

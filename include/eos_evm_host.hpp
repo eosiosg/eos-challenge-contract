@@ -18,11 +18,11 @@ namespace evmc {
 		/// contract
 		EOSHostContext(eos_evm &contract) : _contract(contract) {
 			tx_context.tx_gas_price = GAS_PRICE_FORCED;
-			tx_context.block_coinbase = evmc_address({0});
+			tx_context.block_coinbase = evmc_address({1});
 			tx_context.block_number = eosio::tapos_block_num();
-			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
+			tx_context.block_timestamp = eosio::current_time_point().sec_since_epoch();
 			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
-			tx_context.block_difficulty = evmc_uint256be({0});
+			tx_context.block_difficulty = evmc_uint256be({1});
 		};
 		eos_evm &_contract;
 
@@ -233,6 +233,10 @@ namespace evmc {
 		evmc_storage_status set_storage(const address &addr,
 		                                const bytes32 &key,
 		                                const bytes32 &value) noexcept override {
+			print(" \n addr: ");
+			printhex(&addr.bytes[0], sizeof(address));
+			print(" \n key: ");
+			printhex(&key.bytes[0], sizeof(bytes32));
 			evmc_storage_status status{};
 			/// record storage_history for revert and dirty flag
 			record_set_storage_history(addr, key, value, status, false);
@@ -245,6 +249,7 @@ namespace evmc {
 			auto itr_eth_addr = by_eth_account_index.find(_addr);
 			if (itr_eth_addr == by_eth_account_index.end())
 				return EVMC_STORAGE_UNCHANGED;
+			print(" \n setting storage...");
 
 			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_addr->id);
 			auto by_eth_account_state_index = _account_state.get_index<eosio::name("bystatekey")>();
@@ -262,6 +267,7 @@ namespace evmc {
 			if (!dirty) {
 				/// set dirty = true;
 				std::get<2>(storage_history_records[addr][key]) = true;
+				print(" \n 1 setting storage...");
 				if (itr_old == by_eth_account_state_index.end() && new_value_array != ZERO_IN_BYTES) {
 					_account_state.emplace(_contract.get_self(), [&](auto &the_state) {
 						the_state.id = _account_state.available_primary_key();
@@ -269,21 +275,27 @@ namespace evmc {
 						the_state.value = new_value;
 					});
 					status = EVMC_STORAGE_ADDED;
+					print(" \n add setting storage...");
 				} else {
+					print(" \n exist setting storage...");
 					auto old_value = itr_old->value;
 					if (old_value == new_value) {
+						print(" \n unchange setting storage...");
 						status = EVMC_STORAGE_UNCHANGED;
 					} else if (new_value_array != ZERO_IN_BYTES) {
+						print(" \n modify setting storage...");
 						_account_state.modify(*itr_old, eosio::same_payer, [&](auto &the_state) {
 							the_state.value = new_value;
 						});
 						status = EVMC_STORAGE_MODIFIED;
 					} else {
+						print(" \n delete setting storage...");
 						by_eth_account_state_index.erase(itr_old);
 						status = EVMC_STORAGE_DELETED;
 					}
 				}
 			} else {
+				print(" \n modify setting storage...");
 				if (new_value_array != ZERO_IN_BYTES) {
 					_account_state.modify(*itr_old, eosio::same_payer, [&](auto &the_state) {
 						the_state.value = new_value;
@@ -463,6 +475,7 @@ namespace evmc {
 
 		/// Get transaction context (EVMC host method).
 		evmc_tx_context get_tx_context() const noexcept override {
+			print(" \n time: ", tx_context.block_timestamp);
 			return tx_context;
 		}
 
