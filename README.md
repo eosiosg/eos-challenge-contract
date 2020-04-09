@@ -8,7 +8,7 @@ Some of features of EOSEVM include:
 3. Connect to EVMC, replace the EVMs any time and without efforts, same for evmjit and ewasm
 4. Create account in two ways. One is ETH address associate EOS account uniquely, the other is native ETH address which user must own private key
 5. Verify signature in two ways. Similar to account creation, one is EOS associate account **reqiure_auth**, the other is native ETH address recover.
-6. Persist Solidity smart contract data with native EOSIO multi-index
+6. Persist Solidity smart contract data with native EOSIO multi-index. Revert **dirty state** if vm execution failed.
 7. Gas free. Maintain whole gas system to calculate gas, and force set gas price = 0. 
 8. Simulate transaction execution in API node.
 
