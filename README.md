@@ -156,7 +156,7 @@ From this point of view, speculate **two kinds** of account type in **account ta
 - **native ETH address**, the user must have ETH private key
 - **EOS associate fake ETH address**, user does not have ETH private key
 
-3. From (Byzantium revision)[https://eips.ethereum.org/EIPS/eip-140], the EVM smart contract support **revert**. Need to revert all state changes in **account state table**. The application provide a solution to record history of **setting storage**. If vm execution result != EVMC_SUCCESS, It will roll back all multi-index change base on the history storage status.
+3. From [Byzantium revision](https://eips.ethereum.org/EIPS/eip-140), the EVM smart contract support **revert**. Need to revert all state changes in **account state table**. The application provide a solution to record history of **setting storage**. If vm execution result != EVMC_SUCCESS, It will roll back all multi-index change base on the history storage status.
 	- if EVMC_STORAGE_ADDED, it will to erase record
 	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin record
 	- if EVMC_STORAGE_DELETED need to emplace in multi-index
