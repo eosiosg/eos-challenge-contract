@@ -156,6 +156,11 @@ From this point of view, speculate **two kinds** of account type in **account ta
 - **native ETH address**, the user must have ETH private key
 - **EOS associate fake ETH address**, user does not have ETH private key
 
+3. From (Byzantium revision)[https://eips.ethereum.org/EIPS/eip-140], the EVM smart contract support **revert**. Need to revert all state changes in **account state table**. The application provide a solution to record history of **setting storage**. If vm execution result != EVMC_SUCCESS, It will roll back all multi-index change base on the history storage status.
+	- if EVMC_STORAGE_ADDED, it will to erase record
+	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin record
+	- if EVMC_STORAGE_DELETED need to emplace in multi-index
+
 ### Implementation 5
 
 ```c
@@ -172,6 +177,10 @@ void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender)
    	   
 - Gas calculation. maintain native gas system include **intrinsic gas** and **vm gas** usage. Buy gas and refund gas also avalible.
 - Value transfer. If value != 0, transfer value from **sender** to **to** address.
+- If vm execution result != EVMC_SUCCESS. Then need to revert dirty storage
+	- if EVMC_STORAGE_ADDED need to erase
+	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin
+	- if EVMC_STORAGE_DELETED need to emplace
 - Print vm receipt in **JSON** format and parse easily in JS client
 
 ### Requirement 6: 
