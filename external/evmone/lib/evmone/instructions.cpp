@@ -464,6 +464,7 @@ const instruction* op_mload(const instruction* instr, execution_state& state) no
 
 const instruction* op_mstore(const instruction* instr, execution_state& state) noexcept
 {
+	eosio::print(" \n op mstore... ");
     const auto index = state.stack.pop();
     const auto value = state.stack.pop();
 

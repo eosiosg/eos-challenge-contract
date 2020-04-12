@@ -293,6 +293,7 @@ namespace evmc {
 					status = EVMC_STORAGE_MODIFIED_AGAIN;
 				}
 			}
+//			print(" \n return state");
 			std::get<1>(storage_history_records[addr][key]) = status;
 			return status;
 		}
