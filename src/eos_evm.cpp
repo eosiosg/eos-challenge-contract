@@ -4,7 +4,6 @@
 
 #include <eos_evm_host.hpp>
 #include <gas_manager.hpp>
-#include <mocked_host.hpp>
 
 const evmc_address zero_address{{0}};
 
