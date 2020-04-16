@@ -128,9 +128,25 @@ cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec
 # for loop2
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x60006080525b600a608051101560265760a0516080510160a0526001608051016080526005565b", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x00"]' -p $accountb
 
-#DynamicJumpStartWithJumpDest good
+#DynamicJumpStartWithJumpDest OK
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x5b586000555960115758600052596000575b58600055", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x0b"]' -p $accountb
 
-#DynamicJumpJD_DependsOnJumps1 bad
+#pre add
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x6004600001600055", "0x", "0x0186a0", "0x0c", "0xcd1722f2947def4cf144679da39c4c32bdc35681", "0x0b"]' -p $accountb
+
+
+#DynamicJumpJD_DependsOnJumps1
 cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x600a436006575b5660015b6001600155", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x00"]' -p $accountb
+
+#JDfromStorageDynamicJump0_jumpdest2 OK
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x6023600a600850600054015660015b600255", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x00"]' -p $accountb
+
+#signextend_Overflow_dj42
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x6005565b005b61800080680100000000000000010b6180011160035763badf000d601155", "0x", "0x0186a0", "0x0c", "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b", "0x00"]' -p $accountb
+
+#JDfromStorageDynamicJumpiAfterStop OK
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f3947def4cf144679da39c4c32bdc35681", "0x6001600860005401570060015b6002600355", "0x", "0x0186a0", "0x5af3107a4000", "0xcd1722f3947def4cf144679da39c4c32bdc35681", "0x0de0b6b3a7640000"]' -p $accountb
+
+#DynamicJumpPathologicalTest1 OK
+cleos push action $contract rawtest '["0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6", "0xcd1722f3947def4cf144679da39c4c32bdc35681", "0x435660615b4343025660615b60615b605b6001600155", "0x", "0x0186a0", "0x5af3107a4000", "0xcd1722f3947def4cf144679da39c4c32bdc35681", "0x0de0b6b3a7640000"]' -p $accountb
 

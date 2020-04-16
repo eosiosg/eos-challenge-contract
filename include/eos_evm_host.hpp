@@ -24,6 +24,7 @@ namespace evmc {
 			tx_context.block_timestamp = eosio::current_time_point().sec_since_epoch();
 			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
 			tx_context.block_difficulty = evmc_uint256be({1});
+			tx_context.chain_id = evmc_uint256be({1});
 		};
 		eos_evm &_contract;
 		address tx_origin;
@@ -293,7 +294,6 @@ namespace evmc {
 					status = EVMC_STORAGE_MODIFIED_AGAIN;
 				}
 			}
-//			print(" \n return state");
 			std::get<1>(storage_history_records[addr][key]) = status;
 			return status;
 		}

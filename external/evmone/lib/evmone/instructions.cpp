@@ -464,7 +464,6 @@ const instruction* op_mload(const instruction* instr, execution_state& state) no
 
 const instruction* op_mstore(const instruction* instr, execution_state& state) noexcept
 {
-	eosio::print(" \n op mstore... ");
     const auto index = state.stack.pop();
     const auto value = state.stack.pop();
 
@@ -1408,23 +1407,40 @@ constexpr op_table create_op_table_istanbul() noexcept
     return table;
 }
 
-constexpr op_table op_tables[] = {
-    create_op_table_frontier(),           // Frontier
-//    create_op_table_homestead(),          // Homestead
-//    create_op_table_tangerine_whistle(),  // Tangerine Whistle
-//    create_op_table_tangerine_whistle(),  // Spurious Dragon
-//    create_op_table_byzantium(),          // Byzantium
-//    create_op_table_constantinople(),     // Constantinople
-//    create_op_table_constantinople(),     // Petersburg
-    create_op_table_istanbul(),           // Istanbul
-//    create_op_table_istanbul(),           // Berlin
-};
-//static_assert(sizeof(op_tables) / sizeof(op_tables[0]) > EVMC_MAX_REVISION,
-//    "op table entry missing for an EVMC revision");
+constexpr op_table op_table_frontier = create_op_table_frontier();
+constexpr op_table op_table_homestead = create_op_table_homestead();
+constexpr op_table op_table_tangerine_whistle = create_op_table_tangerine_whistle();
+constexpr op_table op_table_spurious_dragon = create_op_table_tangerine_whistle();
+constexpr op_table op_table_byzantium = create_op_table_byzantium();
+constexpr op_table op_table_constantinople = create_op_table_constantinople();
+constexpr op_table op_table_petersburg = create_op_table_constantinople();
+constexpr op_table op_table_istanbul = create_op_table_istanbul();
+constexpr op_table op_table_berlin = create_op_table_istanbul();
 }  // namespace
 
 EVMC_EXPORT const op_table& get_op_table(evmc_revision rev) noexcept
 {
-    return op_tables[rev];
+	switch(rev) {
+		case EVMC_FRONTIER:
+			return op_table_frontier;
+		case EVMC_HOMESTEAD:
+			return op_table_homestead;
+		case EVMC_TANGERINE_WHISTLE:
+			return op_table_tangerine_whistle;
+		case EVMC_SPURIOUS_DRAGON:
+			return op_table_spurious_dragon;
+		case EVMC_BYZANTIUM:
+			return op_table_byzantium;
+		case EVMC_CONSTANTINOPLE:
+			return op_table_constantinople;
+		case EVMC_PETERSBURG:
+			return op_table_petersburg;
+		case EVMC_ISTANBUL:
+			return op_table_istanbul;
+		case EVMC_BERLIN:
+			return op_table_berlin;
+		default:
+			return op_table_berlin;
+	}
 }
 }  // namespace evmone

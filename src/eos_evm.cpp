@@ -272,8 +272,7 @@ void eos_evm::rawtest(std::string address, std::string &caller, hex_code &code, 
 		revert_state(host.storage_history_records);
 	}
 	auto gas_left = result.gas_left;
-	print(" \n gas left: ", gas_left);
-//	print_vm_receipt_json(result, trx, msg.sender, gas_left, host.eth_emit_logs);
+	print_vm_receipt_json(result, trx, msg.sender, gas_left, host.eth_emit_logs);
 }
 
 
