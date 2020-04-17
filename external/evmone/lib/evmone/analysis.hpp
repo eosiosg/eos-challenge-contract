@@ -204,6 +204,9 @@ struct code_analysis
     /// The indexes of the instructions in the generated instruction table
     /// matching the elements from jumdest_offsets.
     /// This is value to which the next instruction pointer must be set in JUMP/JUMPI.
+
+    /// There is a critical bug if jumpdest_targets type is std::vector<int32_t>. Because of
+    /// static cast from size_t to int32_t when analysis bytecode
     std::vector<uint64_t> jumpdest_targets;
 };
 

@@ -1407,6 +1407,7 @@ constexpr op_table create_op_table_istanbul() noexcept
     return table;
 }
 
+/// change EVMONE from op_tables[] to op_table to avoid set contract wasm_func_constrain assertion failure
 constexpr op_table op_table_frontier = create_op_table_frontier();
 constexpr op_table op_table_homestead = create_op_table_homestead();
 constexpr op_table op_table_tangerine_whistle = create_op_table_tangerine_whistle();
