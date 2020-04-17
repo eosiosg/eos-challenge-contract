@@ -11,6 +11,8 @@ Some of features of EOSEVM include:
 6. Persist Solidity smart contract data with native EOSIO multi-index. Revert **dirty state** if vm execution failed.
 7. Gas free. Maintain whole gas system to calculate gas, and force set gas price = 0. 
 8. Simulate transaction execution in API node.
+9. Pass all test cases in [VMTest](https://github.com/ethereum/tests/tree/7497b116a019beb26215cbea4028df068dea06be)
+10. Fully support all kinds of EVMC_REVISION
 
 ## EOSEVM Challenge Solution and Implementation
 
