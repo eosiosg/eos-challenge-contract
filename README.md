@@ -3,6 +3,7 @@
 ## Features
 
 - Simulate an EVM Interpreter in EOSIO smart contract and execute EVM transactions as faithfully to the Ethereum Yellow Paper as possible
+- NO CHANGES to the EOSIO software
 - Follow EVMC standard.
 - Fully support all EVMC_REVISIONs
 - Support dry-run transaction execution. //TODO add example and document
