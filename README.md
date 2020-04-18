@@ -350,3 +350,38 @@ This MAY be done with an additional initialization action
 	 const std::string &eth_emit_logs
 	);
 	```
+4. raw test action
+
+	- The application provide an additional rawtest action in [test branch](https://github.com/eosiosg/eos-challenge/tree/test) to run the [VMTest](https://github.com/ethereum/tests/tree/7497b116a019beb26215cbea4028df068dea06be) 
+	- basic params in json test exec. 
+		```
+	        "exec" : {
+            "address" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055",
+            "data" : "0x",
+            "gas" : "0x0186a0",
+            "gasPrice" : "0x5af3107a4000",
+            "origin" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "value" : "0x0de0b6b3a7640000"
+        },
+	```
+	- Explanation
+		- run json test 
+
+
+	- Implementation
+
+		```c
+		[[eosio::action]]
+		void eos_evm::rawtest(
+		 std::string &address,
+		 std::string &caller, 
+		 hex_code &code, 
+		 std::string &data, 
+		 std::string &gas,
+		 std::string &gasPrice,
+		 std::string &origin, 
+		 std::string &value
+		);
+		```
