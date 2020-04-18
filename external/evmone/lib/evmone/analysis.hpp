@@ -205,8 +205,9 @@ struct code_analysis
     /// matching the elements from jumdest_offsets.
     /// This is value to which the next instruction pointer must be set in JUMP/JUMPI.
 
-    /// There is a critical bug if jumpdest_targets type is std::vector<int32_t>. Because of
-    /// static cast from size_t to int32_t when analysis bytecode
+    //FIXME: changed from int32_t to uint64_t to bypass an unknown bug causing crash
+    // when built into eos contract. Tests show that the value of
+    // static_cast<int32_t>(analysis.instrs.size() - 1) sometimes is incorrect (for example a negative number).
     std::vector<uint64_t> jumpdest_targets;
 };
 
