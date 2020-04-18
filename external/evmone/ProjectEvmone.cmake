@@ -20,6 +20,8 @@ ExternalProject_Add(
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/evmc/lib/CMakeLists.txt <SOURCE_DIR>/evmc/lib/CMakeLists.txt
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/evmc/lib/instructions/CMakeLists.txt <SOURCE_DIR>/evmc/lib/instructions/CMakeLists.txt
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/lib/evmone/instructions.cpp <SOURCE_DIR>/lib/evmone/instructions.cpp
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/lib/evmone/analysis.hpp <SOURCE_DIR>/lib/evmone/analysis.hpp
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_LIST_DIR}/lib/evmone/analysis.cpp <SOURCE_DIR>/lib/evmone/analysis.cpp
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EVMONE_LIBRARY}
             ${_only_release_configuration}
         INSTALL_COMMAND  ${CMAKE_COMMAND} -E copy lib/evmone/${CMAKE_STATIC_LIBRARY_PREFIX}evmone${CMAKE_STATIC_LIBRARY_SUFFIX} ${EVMONE_LIBRARY}

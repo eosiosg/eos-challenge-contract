@@ -16,15 +16,18 @@ namespace evmc {
 	class EOSHostContext : public Host {
 	public:
 		/// contract
-		EOSHostContext(eos_evm &contract) : _contract(contract) {
+		EOSHostContext(eos_evm &contract, address origin) : _contract(contract) {
 			tx_context.tx_gas_price = GAS_PRICE_FORCED;
-			tx_context.block_coinbase = evmc_address({0});
+			tx_context.tx_origin = origin;
+			tx_context.block_coinbase = evmc_address({1});
 			tx_context.block_number = eosio::tapos_block_num();
-			tx_context.block_timestamp = eosio::time_point().sec_since_epoch();
+			tx_context.block_timestamp = eosio::current_time_point().sec_since_epoch();
 			tx_context.block_gas_limit = BLOCK_GAS_LIMIT;
-			tx_context.block_difficulty = evmc_uint256be({0});
+			tx_context.block_difficulty = evmc_uint256be({1});
+			tx_context.chain_id = evmc_uint256be({1});
 		};
 		eos_evm &_contract;
+		address tx_origin;
 
 		evmc_tx_context tx_context{};
 		/// The block header hash value to be returned by get_block_hash().
