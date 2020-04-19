@@ -176,3 +176,14 @@ uint256_t intx_uint256_to_uint256_t(const intx::uint256 &value) {
 	std::copy(&evmc_value.bytes[0], &evmc_value.bytes[0] + sizeof(evmc::bytes32), value_array.data());
 	return eosio::fixed_bytes<32>(value_array);
 }
+
+// Big-endian to host endian conversion functions.
+template <class T, class Out>
+inline void toBigEndian(T _val, Out& o_out)
+{
+	for (auto i = o_out.size(); i != 0; _val >>= 8, i--)
+	{
+		T v = _val & (T)0xff;
+		o_out[i - 1] = (typename Out::value_type)(uint8_t)v;
+	}
+}

@@ -145,7 +145,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 	/// if result == EVMC_SUCCESS, transfer value;
 	if (result.status_code == EVMC_SUCCESS) {
 		/// transfer value
-		auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
+		auto transfer_val = intx::be::load<intx::uint256>(msg.value);
 		/// transfer asset
 		if (transfer_val > 0) {
 			host.transfer(msg, result);
