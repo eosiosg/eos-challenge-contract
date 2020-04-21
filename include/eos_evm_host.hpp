@@ -39,7 +39,7 @@ namespace evmc {
 		storage_records storage_history_records;
 
 		evmc_result create_contract(const address &eth_contract_addr, const evmc_message &message) {
-			eosio::check(message.kind == EVMC_CREATE, "message kind must be create");
+			eosio::check(message.kind == EVMC_CREATE || message.kind == EVMC_CREATE2, "message kind must be create or create2");
 			eosio::check(message.input_size > 0, "message input size must be > 0");
 
 			eth_addr_160 eth_contract_160 = evmc_address_to_eth_addr_160(eth_contract_addr);
@@ -120,6 +120,35 @@ namespace evmc {
 
 			address contract_address;
 			std::copy_n(&eth.bytes[0] + PADDING, 20, &contract_address.bytes[0]);
+
+			return contract_address;
+		}
+
+		/// create contract address2
+		address create_address2(const evmc_message &msg) {
+			///keccak256( 0xff ++ address ++ salt ++ keccak256(init_code))[12:]
+			std::vector<uint8_t> contract_address2_seed;
+			std::vector<uint8_t> ff{0xff};
+			std::vector<uint8_t> sender_v(sizeof(evmc::address));
+			std::copy_n(&msg.sender.bytes[0], sizeof(evmc::address), sender_v.data());
+			std::vector<uint8_t> create2_salt_v(sizeof(evmc::address));
+			auto int256_salt = intx::be::load<intx::uint256>(msg.create2_salt);
+			toBigEndian(int256_salt, create2_salt_v);
+
+			std::vector<uint8_t> init_code_hash_v;
+			std::vector<uint8_t> init_code(msg.input_data, msg.input_data + msg.input_size);
+			auto init_code_hash = ethash::keccak256(init_code.data(), init_code.size());
+			std::copy_n(&init_code_hash.bytes[0], sizeof(init_code_hash), init_code_hash_v.data());
+
+			contract_address2_seed.insert(contract_address2_seed.end(), ff.begin(), ff.end());
+			contract_address2_seed.insert(contract_address2_seed.end(), sender_v.begin(), sender_v.end());
+			contract_address2_seed.insert(contract_address2_seed.end(), create2_salt_v.begin(), create2_salt_v.end());
+			contract_address2_seed.insert(contract_address2_seed.end(), init_code_hash_v.begin(), init_code_hash_v.end());
+
+			auto eth = ethash::keccak256(contract_address2_seed.data(), contract_address2_seed.size());
+
+			address contract_address;
+			std::copy_n(&eth.bytes[0] + PADDING, sizeof(evmc::address), &contract_address.bytes[0]);
 
 			return contract_address;
 		}
@@ -382,52 +411,46 @@ namespace evmc {
 			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 			auto itr_eth_suicide = by_eth_account_index.find(_addr);
-			auto batch_count = MAX_BATCH_DESTRUCT;
-			/// 1. remove account state record, if there is large amount of data need to call multi-times
+			/// 1. remove account state record
 			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_suicide->id);
 			auto itr_eth_suicide_state = _account_state.begin();
-			while (itr_eth_suicide_state != _account_state.end() && batch_count) {
+			while (itr_eth_suicide_state != _account_state.end()) {
 				itr_eth_suicide_state = _account_state.erase(itr_eth_suicide_state);
-				batch_count--;
 			}
-			if (_account_state.cbegin() == _account_state.cend()) {
-				/// all of state amount less than MAX_BATCH_DESTRUCT
-				/// 2. transfer balance to beneficiary
-				auto remain_balance = intx::be::unsafe::load<intx::uint256>(itr_eth_suicide->balance.extract_as_byte_array().data());
-				eth_addr_256 eth_address_beneficiary = evmc_address_to_eth_addr_256(beneficiary);
-				auto by_eth_account_index = _account.get_index<name("byeth")>();
-				auto itr_eth_beneficiary = by_eth_account_index.find(eth_address_beneficiary);
+			/// 2. transfer balance to beneficiary
+			auto remain_balance = intx::be::unsafe::load<intx::uint256>(itr_eth_suicide->balance.extract_as_byte_array().data());
+			eth_addr_256 eth_address_beneficiary = evmc_address_to_eth_addr_256(beneficiary);
+			auto itr_eth_beneficiary = by_eth_account_index.find(eth_address_beneficiary);
 
-				if (itr_eth_beneficiary != by_eth_account_index.end()) {
-					/// update account table token balance
-					_account.modify(*itr_eth_beneficiary, _contract.get_self(), [&](auto &the_account) {
-						intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
-								the_account.balance.extract_as_byte_array().data());
-						intx::uint256 new_balance = old_balance + remain_balance;
-						the_account.balance = intx_uint256_to_uint256_t(new_balance);
-					});
-				} else {
-					/// create beneficiary
-					_account.emplace(_contract.get_self(), [&](auto &the_account) {
-						the_account.id = _account.available_primary_key();
-						the_account.eth_address = evmc_address_to_eth_addr_160(beneficiary);
-						the_account.nonce = INIT_NONCE;
-						the_account.balance = intx_uint256_to_uint256_t(remain_balance);
-						the_account.eosio_account = name();
-					});
-				}
+			if (itr_eth_beneficiary != by_eth_account_index.end()) {
+				/// update account table token balance
+				_account.modify(*itr_eth_beneficiary, _contract.get_self(), [&](auto &the_account) {
+					intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+							the_account.balance.extract_as_byte_array().data());
+					intx::uint256 new_balance = old_balance + remain_balance;
+					the_account.balance = intx_uint256_to_uint256_t(new_balance);
+				});
+			} else {
+				/// create beneficiary
+				_account.emplace(_contract.get_self(), [&](auto &the_account) {
+					the_account.id = _account.available_primary_key();
+					the_account.eth_address = evmc_address_to_eth_addr_160(beneficiary);
+					the_account.nonce = INIT_NONCE;
+					the_account.balance = intx_uint256_to_uint256_t(remain_balance);
+					the_account.eosio_account = name();
+				});
+			}
 
-				/// 3. remove account table record
-				if (itr_eth_suicide != by_eth_account_index.end()) {
-					by_eth_account_index.erase(itr_eth_suicide);
-				}
-				/// 4. remove account code table record
-				eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
-				auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
-				auto itr_eth_code = by_eth_account_code_index.find(_addr);
-				if (itr_eth_code != by_eth_account_code_index.end()) {
-					by_eth_account_code_index.erase(itr_eth_code);
-				}
+			/// 3. remove account table record
+			if (itr_eth_suicide != by_eth_account_index.end()) {
+				by_eth_account_index.erase(itr_eth_suicide);
+			}
+			/// 4. remove account code table record
+			eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
+			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
+			auto itr_eth_code = by_eth_account_code_index.find(_addr);
+			if (itr_eth_code != by_eth_account_code_index.end()) {
+				by_eth_account_code_index.erase(itr_eth_code);
 			}
 		}
 
@@ -439,11 +462,11 @@ namespace evmc {
 			_result.output_size = 0;
 			_result.create_address = {0};
 			_result.release = nullptr;
-			if (msg.kind == EVMC_CREATE) {
+			if (msg.kind == EVMC_CREATE || msg.kind == EVMC_CREATE2) {
 				/// get nonce
 				auto nonce = _contract.get_nonce(msg);
 				/// create contract address
-				auto eth_contract_addr = create_address(msg.sender, nonce);
+				auto eth_contract_addr = msg.kind == EVMC_CREATE ? create_address(msg.sender, nonce) : create_address2(msg);
 				/// set contract
 				_result = create_contract(eth_contract_addr, msg);
 			} else {
@@ -451,7 +474,7 @@ namespace evmc {
 				_result = vm_execute(code, msg);
 				if (_result.status_code == EVMC_SUCCESS) {
 					/// transfer value
-					auto transfer_val = intx::be::unsafe::load<intx::uint256>(&msg.value.bytes[0]);
+					auto transfer_val = intx::be::load<intx::uint256>(msg.value);
 					/// transfer asset
 					if (transfer_val > 0) {
 						transfer(msg, _result);
@@ -460,6 +483,7 @@ namespace evmc {
 					_result.status_code = EVMC_FAILURE;
 				}
 			}
+			_contract.increase_nonce(msg);
 
 			return result(_result);
 		}
