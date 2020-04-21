@@ -204,6 +204,10 @@ struct code_analysis
     /// The indexes of the instructions in the generated instruction table
     /// matching the elements from jumdest_offsets.
     /// This is value to which the next instruction pointer must be set in JUMP/JUMPI.
+
+    //FIXME: changed from int32_t to uint64_t to bypass an unknown bug causing crash
+    // when built into eos contract. Tests show that the value of
+    // static_cast<int32_t>(analysis.instrs.size() - 1) sometimes is incorrect (for example a negative number).
     std::vector<uint64_t> jumpdest_targets;
 };
 

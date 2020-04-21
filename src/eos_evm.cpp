@@ -127,7 +127,6 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto eth_dest = vector_to_eth_addr_256(trx.to);
 		code = get_eth_code(eth_dest);
 		result = host.vm_execute(code, msg);
-		increase_nonce(msg);
 	} else {
 		/// is create contract
 		msg.kind = EVMC_CREATE;
@@ -135,6 +134,7 @@ void eos_evm::raw(const hex_code &trx_code, const binary_extension <eth_addr_160
 		auto eth_contract_address = host.create_address(msg.sender, nonce);
 		result = host.create_contract(eth_contract_address, msg);
 	}
+	increase_nonce(msg);
 	gas_manager.use_gas(gas_manager.intrinsic_gas(is_create_contract));
 	gas_manager.set_vm_execute_result(result);
 	auto gas_used = gas_manager.gas_used();

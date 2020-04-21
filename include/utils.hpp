@@ -20,17 +20,15 @@ using uint256_t = eosio::checksum256;
 typedef std::map<evmc::address, std::map<evmc::bytes32, std::tuple<evmc::bytes32, evmc_storage_status, bool>>> storage_records;
 /// init nonce
 const std::array<uint8_t,32> ONE_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1};
-const eosio::fixed_bytes<32> INIT_NONCE(ONE_IN_BYTES);
-
-/// init balance
 const std::array<uint8_t,32> ZERO_IN_BYTES = {0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0};
+const eosio::fixed_bytes<32> INIT_NONCE(ZERO_IN_BYTES);
+const eosio::fixed_bytes<32> INIT_NONCE_PLUS_ONE(ONE_IN_BYTES);
 const eosio::fixed_bytes<32> INIT_BALANCE(ZERO_IN_BYTES);
 const int64_t BLOCK_GAS_LIMIT = std::numeric_limits<int64_t>::max();
 const auto GAS_PRICE_FORCED = evmc_uint256be({0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0});
 
 #define PADDING 12
 #define ADDRSIZE 20
-#define MAX_BATCH_DESTRUCT 100
 
 /// Encode a byte to a hex string.
 inline std::string hex(uint8_t b) noexcept {
