@@ -61,7 +61,7 @@ namespace evmc {
 					_account.emplace(_contract.get_self(), [&](auto &the_account) {
 						the_account.id = _account.available_primary_key();
 						the_account.eth_address = eth_contract_160;
-						the_account.nonce = INIT_NONCE;
+						the_account.nonce = INIT_NONCE_PLUS_ONE;
 						the_account.balance = INIT_BALANCE;
 						the_account.eosio_account = name();
 					});
