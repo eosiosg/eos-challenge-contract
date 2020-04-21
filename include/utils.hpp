@@ -30,7 +30,6 @@ const auto GAS_PRICE_FORCED = evmc_uint256be({0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 
 
 #define PADDING 12
 #define ADDRSIZE 20
-#define MAX_BATCH_DESTRUCT 300
 
 /// Encode a byte to a hex string.
 inline std::string hex(uint8_t b) noexcept {

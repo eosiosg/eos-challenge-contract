@@ -411,52 +411,46 @@ namespace evmc {
 			eos_evm::tb_account _account(_contract.get_self(), _contract.get_self().value);
 			auto by_eth_account_index = _account.get_index<eosio::name("byeth")>();
 			auto itr_eth_suicide = by_eth_account_index.find(_addr);
-			auto batch_count = MAX_BATCH_DESTRUCT;
-			/// 1. remove account state record, if there is large amount of data need to call multi-times
+			/// 1. remove account state record
 			eos_evm::tb_account_state _account_state(_contract.get_self(), itr_eth_suicide->id);
 			auto itr_eth_suicide_state = _account_state.begin();
-			while (itr_eth_suicide_state != _account_state.end() && batch_count) {
+			while (itr_eth_suicide_state != _account_state.end()) {
 				itr_eth_suicide_state = _account_state.erase(itr_eth_suicide_state);
-				batch_count--;
 			}
-			if (_account_state.cbegin() == _account_state.cend()) {
-				/// all of state amount less than MAX_BATCH_DESTRUCT
-				/// 2. transfer balance to beneficiary
-				auto remain_balance = intx::be::unsafe::load<intx::uint256>(itr_eth_suicide->balance.extract_as_byte_array().data());
-				eth_addr_256 eth_address_beneficiary = evmc_address_to_eth_addr_256(beneficiary);
-				auto by_eth_account_index = _account.get_index<name("byeth")>();
-				auto itr_eth_beneficiary = by_eth_account_index.find(eth_address_beneficiary);
+			/// 2. transfer balance to beneficiary
+			auto remain_balance = intx::be::unsafe::load<intx::uint256>(itr_eth_suicide->balance.extract_as_byte_array().data());
+			eth_addr_256 eth_address_beneficiary = evmc_address_to_eth_addr_256(beneficiary);
+			auto itr_eth_beneficiary = by_eth_account_index.find(eth_address_beneficiary);
 
-				if (itr_eth_beneficiary != by_eth_account_index.end()) {
-					/// update account table token balance
-					_account.modify(*itr_eth_beneficiary, _contract.get_self(), [&](auto &the_account) {
-						intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
-								the_account.balance.extract_as_byte_array().data());
-						intx::uint256 new_balance = old_balance + remain_balance;
-						the_account.balance = intx_uint256_to_uint256_t(new_balance);
-					});
-				} else {
-					/// create beneficiary
-					_account.emplace(_contract.get_self(), [&](auto &the_account) {
-						the_account.id = _account.available_primary_key();
-						the_account.eth_address = evmc_address_to_eth_addr_160(beneficiary);
-						the_account.nonce = INIT_NONCE;
-						the_account.balance = intx_uint256_to_uint256_t(remain_balance);
-						the_account.eosio_account = name();
-					});
-				}
+			if (itr_eth_beneficiary != by_eth_account_index.end()) {
+				/// update account table token balance
+				_account.modify(*itr_eth_beneficiary, _contract.get_self(), [&](auto &the_account) {
+					intx::uint256 old_balance = intx::be::unsafe::load<intx::uint256>(
+							the_account.balance.extract_as_byte_array().data());
+					intx::uint256 new_balance = old_balance + remain_balance;
+					the_account.balance = intx_uint256_to_uint256_t(new_balance);
+				});
+			} else {
+				/// create beneficiary
+				_account.emplace(_contract.get_self(), [&](auto &the_account) {
+					the_account.id = _account.available_primary_key();
+					the_account.eth_address = evmc_address_to_eth_addr_160(beneficiary);
+					the_account.nonce = INIT_NONCE;
+					the_account.balance = intx_uint256_to_uint256_t(remain_balance);
+					the_account.eosio_account = name();
+				});
+			}
 
-				/// 3. remove account table record
-				if (itr_eth_suicide != by_eth_account_index.end()) {
-					by_eth_account_index.erase(itr_eth_suicide);
-				}
-				/// 4. remove account code table record
-				eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
-				auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
-				auto itr_eth_code = by_eth_account_code_index.find(_addr);
-				if (itr_eth_code != by_eth_account_code_index.end()) {
-					by_eth_account_code_index.erase(itr_eth_code);
-				}
+			/// 3. remove account table record
+			if (itr_eth_suicide != by_eth_account_index.end()) {
+				by_eth_account_index.erase(itr_eth_suicide);
+			}
+			/// 4. remove account code table record
+			eos_evm::tb_account_code _account_code(_contract.get_self(), _contract.get_self().value);
+			auto by_eth_account_code_index = _account_code.get_index<eosio::name("byeth")>();
+			auto itr_eth_code = by_eth_account_code_index.find(_addr);
+			if (itr_eth_code != by_eth_account_code_index.end()) {
+				by_eth_account_code_index.erase(itr_eth_code);
 			}
 		}
 
