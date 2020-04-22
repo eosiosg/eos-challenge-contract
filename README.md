@@ -1,18 +1,22 @@
-# EOSEVM - Running Solidity Smart Contract on EOS
+# EOSEVM - Simulate EVM in EOS Contract
 
-## Description
-Some of features of EOSEVM include: 
+## Features
 
-1. Running solidity smart contract on EOSIO
-2. Simulate an EVM Interpreter in EOSIO smart contract and execute EVM transactions as faithfully to the Ethereum Yellow Paper as possible
-3. Connect to EVMC, replace the EVMs any time and without efforts, same for evmjit and ewasm
-4. Create account in two ways. One is ETH address associate EOS account uniquely, the other is native ETH address which user must own private key
-5. Verify signature in two ways. Similar to account creation, one is EOS associate account **reqiure_auth**, the other is native ETH address recover.
-6. Persist Solidity smart contract data with native EOSIO multi-index. Revert **dirty state** if vm execution failed.
-7. Gas free. Maintain whole gas system to calculate gas, and force set gas price = 0. 
-8. Simulate transaction execution in API node.
-9. Pass all test cases in [VMTest](https://github.com/ethereum/tests/tree/7497b116a019beb26215cbea4028df068dea06be)
-10. Fully support all kinds of EVMC_REVISION
+- Simulate an EVM Interpreter in EOSIO smart contract and execute EVM transactions as faithfully to the Ethereum Yellow Paper as possible
+- NO CHANGES to the EOSIO software
+- Follow EVMC standard.
+- Fully support all EVMC_REVISIONs
+- Support dry-run transaction execution. //TODO add example and document
+- Detailed Functions
+    - EOS user can create a eth address associated with his/her EOS account, and use EOS account private key to execute challenge transactions.
+    - ETH user can create an account through BFSP by provide an eth address. Afterwards the ETH user can call EVM contracts (deployed in challenge contract) exactly the same way as in ETH, except that a BFSP is needed to forward transactions.
+    - The challenge contract can link customisable external token contract and symbol.
+    - Associated accounts can transfer/withdraw linked token between external token contract and challenge contract.
+    - All accounts can use EVM transfer transaction to send linked token inside the challenge contract.
+    - All accounts can deploy and execute EVM bytecode, and contract address is created following ETH rules.
+    - GAS fee is calculated but not billed.
+    - Persist smart contract data with native EOSIO multi-index. Revert **dirty state** if vm execution failed.
+    - Detailed challenge requirements are discussed in "eos-challenge-contract project", such as GAS fee, chain-id, nonce and so on.
 
 ## EOSEVM Challenge Solution and Implementation
 
@@ -350,3 +354,39 @@ This MAY be done with an additional initialization action
 	 const std::string &eth_emit_logs
 	);
 	```
+4. raw test action
+
+	- The application provide an additional rawtest action in [test branch](https://github.com/eosiosg/eos-challenge/tree/test) to run the [VMTest](https://github.com/ethereum/tests/tree/7497b116a019beb26215cbea4028df068dea06be) 
+	- basic params in json test exec. 
+	```
+	    "exec" : {
+            "address" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055",
+            "data" : "0x",
+            "gas" : "0x0186a0",
+            "gasPrice" : "0x5af3107a4000",
+            "origin" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "value" : "0x0de0b6b3a7640000"
+        },
+	```
+	
+	- Explanation
+		- run json test 
+
+
+	- Implementation
+
+		```c
+		[[eosio::action]]
+		void eos_evm::rawtest(
+		 std::string &address,
+		 std::string &caller, 
+		 hex_code &code, 
+		 std::string &data, 
+		 std::string &gas,
+		 std::string &gasPrice,
+		 std::string &origin, 
+		 std::string &value
+		);
+		```
