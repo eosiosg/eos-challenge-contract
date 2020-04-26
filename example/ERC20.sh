@@ -120,3 +120,15 @@ cleos -u ${remote} push action ${contract}  raw '["f8cb808609184e72a000830271009
 # }
 cleos -u ${remote} push action ${contract}  raw '["f88a018609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a0b7c52090d485eefc98babbd832a96e956b1143f36831f1915e92e3c49807d854a06d431dd9dabb8d77c274f0973bdf725aeb69ea65eb2ab30e3a22d8c44cff8376"]' -p ${accountb}
 #--------------------
+
+# ERC20----------------------------------dry run example-------------------------------------
+#---balance of 39944247c2edf660d86d57764b58d83b8eee9014 ----
+# {
+#   nonce: '0x02',
+#   gasPrice: '0x09184e72a000',
+#   gasLimit: '0x27100',
+#   to: '0xe8adb07176c578547cad1fbdf0e807197fed13d2',
+#   value: '0x00',
+#   data: '0x70a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee9014',
+# }
+cleos -u ${remote} push action ${contract}  simulate '["f88a028609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a0b7c52090d485eefc98babbd832a96e956b1143f36831f1915e92e3c49807d854a06d431dd9dabb8d77c274f0973bdf725aeb69ea65eb2ab30e3a22d8c44cff8376"]' -p ${accountb}
