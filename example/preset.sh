@@ -2,6 +2,9 @@
 
 set -v
 
+cleos wallet import --private-key 5KMgea7s31sAAj8pEZeKmZXvzSo6spxtwmfUibckVmNwN7e44d4
+cleos wallet import --private-key 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+
 # create system account
 SYSTEM_ACCOUNT="eosio.bpay eosio.msig eosio.names eosio.ram eosio.ramfee eosio.saving eosio.stake eosio.token eosio.vpay"
 
@@ -19,13 +22,13 @@ cleos -u $remote push action eosio.token issue '["eosio", "1000000000.0000 EOS",
 # deploy system contract
 cleos -u $remote set contract eosio ../${systemContract}/eosio.system eosio.system.wasm eosio.system.abi -p eosio
 
-cleos -u ${remote} system newaccount eosio eosevm111111 EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
+cleos -u ${remote} system newaccount eosio eosevm111111 EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
 cleos -u ${remote} transfer eosio ${contract} "1000.0000 EOS" -p eosio
-cleos -u ${remote} system newaccount eosio eosevm11111b EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
+cleos -u ${remote} system newaccount eosio eosevm11111b EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
 cleos -u ${remote} transfer eosio ${accountb} "1000.0000 EOS" -p eosio
-cleos -u ${remote} system newaccount eosio eosevm11111c EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
+cleos -u ${remote} system newaccount eosio eosevm11111c EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
 cleos -u ${remote} transfer eosio ${accountc} "1000.0000 EOS" -p eosio
-cleos -u ${remote} system newaccount eosio eosevm11111d EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
+cleos -u ${remote} system newaccount eosio eosevm11111d EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62 --stake-cpu "1000 EOS" --stake-net "1000 EOS" --buy-ram "1000 EOS" -p eosio
 cleos -u ${remote} transfer eosio ${accountd} "1000.0000 EOS" -p eosio
 
 
@@ -33,7 +36,7 @@ cleos -u ${remote} set contract ${contract}  ../${buildfolder}/eos_evm -p ${cont
 
 cleos -u ${remote} push action ${contract} linktoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p ${contract}
 cleos -u $remote push action eosio updateauth '['"${contract}"',"active","owner",
-{"threshold":1,"keys":[{"key":"EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif","weight":1}],
+{"threshold":1,"keys":[{"key":"EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62","weight":1}],
 "waits":[],"accounts":[{"weight":1,"permission":{"actor":'"${contract}"',"permission":"eosio.code"}}]}]' -p ${contract}
 
 # create account
