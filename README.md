@@ -187,7 +187,13 @@ void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender)
 	- if EVMC_STORAGE_ADDED need to erase
 	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin
 	- if EVMC_STORAGE_DELETED need to emplace
-- Print vm receipt in **JSON** format and parse easily in JS client
+- Log output (via EOSIO print intrinsics), Print vm receipt in **JSON** format and parse easily in JS client
+
+- query state of EVM contract address
+```bash
+/// the scope is EVM contract address id shown in account table 
+cleos -u ${remote} get table ${contract} 6 accountstate
+```
 
 ### Requirement 6: 
 
@@ -249,7 +255,13 @@ Transferred tokens should be added to the Account Table entry’s balance
 void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
 ```
 
-- use **[[eosio::on_notify("\*::transfer")]]** to be notified. Make sure from account not in previleged accounts list **eosio.bpay**, **eosio.names**, **eosio.ram**, **eosio.ramfee**, **eosio.saving**, **eosio.stake**, **eosio.vpay** 
+- use **[[eosio::on_notify("\*::transfer")]]** to be notified. Make sure from account not in previleged accounts list **eosio.bpay**, **eosio.names**, **eosio.ram**, **eosio.ramfee**, **eosio.saving**, **eosio.stake**, **eosio.vpay**
+
+- get native token balance from account table
+```bash
+/// lower bound is the left padded 256 bit ETH address
+cleos -u ${remote} get table ${contract} ${contract} account --index 2 --key-type sha256 --lower 000000000000000000000000d81f4358cb8cab53d005e7f47c7ba3f5116000a6
+``` 
 
 ### Requirement 8:
  
