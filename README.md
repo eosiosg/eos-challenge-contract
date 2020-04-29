@@ -6,7 +6,7 @@
 - NO CHANGES to the EOSIO software
 - Follow EVMC standard.
 - Fully support all EVMC_REVISIONs
-- Support dry-run transaction execution. //TODO add example and document
+- Support dry-run transaction execution.
 - Detailed Functions
     - EOS user can create a eth address associated with his/her EOS account, and use EOS account private key to execute challenge transactions.
     - ETH user can create an account through BFSP by provide an eth address. Afterwards the ETH user can call EVM contracts (deployed in challenge contract) exactly the same way as in ETH, except that a BFSP is needed to forward transactions.
@@ -299,6 +299,7 @@ This MAY be done with an additional initialization action
 
 	- Explanation
 	 - Mock API node to send a non-state transaction. Such as check account balance, allowance in ERC20. 
+	 - Dry run action will always be assertion failure. Will not cost gas.
 
 	- Implementation
 
@@ -309,6 +310,12 @@ This MAY be done with an additional initialization action
 	 - execute same logic with raw action
 	 - always assertion failure
 	 - JS client can get transaction **JSON receipt** in **assertion failure pending output console**
+	 
+    - Dry run example. 
+    ```bash
+    cleos -u ${remote} push action ${contract}  simulate '["f88a028609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a0b7c52090d485eefc98babbd832a96e956b1143f36831f1915e92e3c49807d854a06d431dd9dabb8d77c274f0973bdf725aeb69ea65eb2ab30e3a22d8c44cff8376"]' -p ${accountb}
+    ```
+	
 
 2. link token
 
