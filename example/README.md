@@ -1,6 +1,13 @@
 
 # Using test script to deploy byte code of solidity smart contract and execute function in solidity smart contract
 
+```bash
+/// run ERC20 script
+. ./env.sh
+./preset.sh
+./ERC20.sh
+```
+
 ## Description
 This **hex_code** generation progress is for ERC20
 
