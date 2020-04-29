@@ -1,24 +1,6 @@
 #!/usr/bin/env bash
 
-export remote="http://127.0.0.1:8888"
-export contract="eosevm111111"
-export accountb="eosevm11111b"
-export accountc="eosevm11111c"
-export accountd="eosevm11111d"
-cleos -u ${remote} set contract ${contract}  ../build/eos_evm -p ${contract}
-
-cleos -u ${remote} push action ${contract} linktoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p ${contract}
-cleos -u $remote push action eosio updateauth '['"${contract}"',"active","owner",
-{"threshold":1,"keys":[{"key":"EOS54HgSQ9d6qjUT7pEZgbP83zQpcymR4QW1jz2jPDEdbAeKGaUif","weight":1}],
-"waits":[],"accounts":[{"weight":1,"permission":{"actor":'"${contract}"',"permission":"eosio.code"}}]}]' -p ${contract}
-
-# create account
-cleos -u ${remote} push action ${contract} create '['"${accountb}"', "aaaaaa"]' -p ${accountb}
-cleos -u ${remote} push action ${contract} create '['"${accountb}"', d81f4358cb8cab53d005e7f47c7ba3f5116000a6]' -p ${accountb}
-cleos -u ${remote} push action ${contract} create '['"${accountc}"', "aaaaaa"]' -p ${accountc}
-cleos -u ${remote} push action ${contract} create '['"${accountc}"', 39944247c2edf660d86d57764b58d83b8eee9014]' -p ${accountc}
-cleos -u ${remote} push action ${contract} create '['"${accountd}"', "aaaaaa"]' -p ${accountd}
-cleos -u ${remote} push action ${contract} create '['"${accountd}"', e327e755438fbdf9e60891d9b752da10a38514d1]' -p ${accountd}
+set -v
 
 # ERC20----------------------------------with nonce -------------------------------------
 #---create ERC20 contract [total, name, precision, symbol][10000, "first", 4, "SYS"] on address 0xe8adb07176c578547cad1fbdf0e807197fed13d2----
@@ -120,3 +102,15 @@ cleos -u ${remote} push action ${contract}  raw '["f8cb808609184e72a000830271009
 # }
 cleos -u ${remote} push action ${contract}  raw '["f88a018609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a0b7c52090d485eefc98babbd832a96e956b1143f36831f1915e92e3c49807d854a06d431dd9dabb8d77c274f0973bdf725aeb69ea65eb2ab30e3a22d8c44cff8376"]' -p ${accountb}
 #--------------------
+
+# ERC20----------------------------------dry run example-------------------------------------
+#---balance of 39944247c2edf660d86d57764b58d83b8eee9014 ----
+# {
+#   nonce: '0x02',
+#   gasPrice: '0x09184e72a000',
+#   gasLimit: '0x27100',
+#   to: '0xe8adb07176c578547cad1fbdf0e807197fed13d2',
+#   value: '0x00',
+#   data: '0x70a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee9014',
+# }
+cleos -u ${remote} push action ${contract}  simulate '["f88a028609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a071c38e1d653bbb26f2bdb0dbc536ed15e23fa3363b03cdfe99cbe2440613ba92a04c9c2f2cb1abb28a47243790c1277c35eb1c1d47d956d3f1ff4ac1be3ae574d9"]' -p ${accountb}

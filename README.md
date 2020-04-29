@@ -6,7 +6,7 @@
 - NO CHANGES to the EOSIO software
 - Follow EVMC standard.
 - Fully support all EVMC_REVISIONs
-- Support dry-run transaction execution. //TODO add example and document
+- Support dry-run transaction execution.
 - Detailed Functions
     - EOS user can create a eth address associated with his/her EOS account, and use EOS account private key to execute challenge transactions.
     - ETH user can create an account through BFSP by provide an eth address. Afterwards the ETH user can call EVM contracts (deployed in challenge contract) exactly the same way as in ETH, except that a BFSP is needed to forward transactions.
@@ -52,31 +52,360 @@ struct [[eosio::table("eos_evm")]] st_account {
 ```
 The Application MUST persist an “Account State Table” per account, if it would not be empty, consisting of
 
- - How to Build -
-   - cd to 'build' directory
-   - run the command 'cmake ..'
-   - run the command 'make'
-
- - After build -
-   - The built smart contract is under the 'eos_evm' directory in the 'build' directory
-   - You can then do a 'set contract' action with 'cleos' and point in to the './build/eos_evm' directory
-
- - Additions to CMake should be done to the CMakeLists.txt in the './src' directory and not in the top level CMakeLists.txt
- 
-## Add evmone as static library
-
-
-## Add ethash and keccak lib to smart contract
-#### 1. clone ethash
+A unique 256bit key
+A 256bit value
 ```
-git clone https://github.com/chfast/ethash
-```
-#### 2. add lib to CMakeList.txt
-```
-add_subdirectory(ethash)
-link_libraries(ethash)
-link_libraries(keccak)
+### Solution 2:
+- The EVM smart contract data persistence in account state table as a key-value database.
+- The EVMC host function **get storage**, **set storage** hook multi-index with solidity smart contract
+
+### Implementation 2:
+```c
+struct [[eosio::table("eos_evm")]] st_account_state {
+	uint64_t           id;
+	uint256_t          key;
+	uint256_t          value;
+};
 ```
 
-## Add intx to smart contract
-#### Add intx source code to include folder directy to build with smart contract
+### Requirement 3:
+```
+The Application MUST persist an “Account Code Table” per account, if it would not be empty, consisting of
+
+EVM bytecode associated with the account
+```
+
+### Solution 3:
+- The application store account code as a vector of uint8_t to account code table
+
+### Implementation 3:
+
+```c
+struct [[eosio::table("eos_evm")]] st_account_code {
+	uint64_t             id;
+	eth_addr_160         eth_address;
+	std::vector<uint8_t> bytecode;
+};
+```
+
+### Requirement 4: 
+
+```
+The Application MUST execute EVM transactions as faithfully to the Ethereum Yellow Paper as possible with the following notes:
+
+There will be no effective BLOCK gas limit. Instructions that return block limit should return a sufficiently large supply
+The TRANSACTION gas limit will be enforced
+The sender WILL NOT be billed for the gas, the gas price MAY, therefore, be locked at some suitable value
+All other gas mechanics/instructions should be maintained
+Block number and timestamp should represent the native EOSIO block number and time
+Block hash, coinbase, and difficulty should return static values
+```
+### Solution 4:
+
+1. Block gas limit is large supply which set at MAX_UINT64
+2. Transaction gas limit decoded from raw transaction will be enforced, if reach the gas limitation, VM execute result will be OUT\_OF\_GAS
+3. Gas price is forced set to 0 to make sure **Gas fee = gas * gas price = 0**
+4. Gas includes two parts in implementation. **gas usage = intrinsic gas + VM execution gas**. 
+
+	- The intrisinc gas also include two parts 
+		- **base gas**, base gas also have two kinds. if message call, **TxGas = 21000** if contract creation, **TxGasContractCreation = 53000**
+		- **data gas**, [the "intrinsic gas" fee for data is 4 gas per zero byte and 68 gas per nonzero byte](https://github.com/ethereum/wiki/wiki/Design-Rationale#gas-and-fees)
+
+	- VM execution gas maintenance
+		- VM execution gas consumption calculated along with opcodes execution
+  
+  
+5. - Use EOSIO intrinsic function to represent Block number
+   - Use EOSIO time_point represent block timestamp information
+   
+6.  Block hash, coinbase, and difficulty return static values
+
+
+### Implementation 4
+
+- The application provides gas manager to **intrinsic\_gas**, **buy\_gas**,  **refund\_gas**, **use\_gas** to make sure gas calculation is correct
+
+
+### Requirement 5: 
+
+```
+The Application MUST implement an action named “raw”
+
+Whose inputs are
+A binary Ethereum transaction encoded as it appears in a serialized Ethereum block
+[optional] A 160bit account identifier “Sender”
+Which results in
+Appropriate Updates to Account, Account State, and Account Code Tables reflecting the application of the transaction
+Log output (via EOSIO print intrinsics)
+IF the “R” and “S” values of the transaction are NOT 0
+A transaction containing this action must fail if the signature (V, R, S) within the input does not recover to a valid and known 160bit account identifier in the Accounts Table
+IF the “R” and “S” values of the transaction are 0
+A transaction containing this action must fail if “Sender” input parameter is not present or does not refer to a valid and known 160bit account identifier in the Accounts Table
+If the associated entry in the Accounts Table has no Associated EOSIO Account
+OR if the transaction has not been authorized by the Associated EOSIO Account
+```
+
+### Solution 5:
+
+1. Raw action first param transaction_code is **A binary Ethereum transaction encoded with RLP algorithm** which contains 
+
+	- 5 fields nonce, gasPrice, gasLimit, to, value
+	- or 8 fields nonce, gasPrice, gasLimit, to, value and signature related v,r,s
+
+	if 5 fields, means **no ETH signature**, the second param must be the 160bit ETH address sender. if 8 fields, means has ETH signature. 
+
+2. IF the “R” and “S” values of the transaction are NOT 0, it means RLP decoded transaction has 8 fields include the signature v, r, s. Then the application chooses to recover ETH address from signature fields. And check if recovered ETH address in account table to verify the signature
+3. IF the “R” and “S” values of the transaction are 0, it means RLP decoded transaction has 5 fields. Then the application chooses to use EOS intrinsic function **require\_auth** to verify the ETH address(the second param) associate EOSIO account signature. 
+
+From this point of view, speculate **two kinds** of account type in **account table**.
+	
+- **native ETH address**, the user must have ETH private key
+- **EOS associate fake ETH address**, user does not have ETH private key
+
+3. From [Byzantium revision](https://eips.ethereum.org/EIPS/eip-140), the EVM smart contract support **revert**. Need to revert all state changes in **account state table**. The application provide a solution to record history of **setting storage**. If vm execution result != EVMC_SUCCESS, It will roll back all multi-index change base on the history storage status.
+	- if EVMC_STORAGE_ADDED, it will to erase record
+	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin record
+	- if EVMC_STORAGE_DELETED need to emplace in multi-index
+
+### Implementation 5
+
+```c
+[[eosio::action]]
+void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+```
+
+- RLP decode trx\_code with field **nonce, gasPrice, gasLimit, to, value, and signature related v,r,s**
+- Two types of **signature verification**, differentiate by if trx\_code has field **v, r, s**. if exist, recover native ETH address. if not, **require\_auth** with **second param sender** associated EOS account
+- Two types of **action types** in raw action. There are two types of action in ETH transaction shown in ETH yellow paper differentiate by trx\_code **to** field.
+   	       
+	- **contract creation**, evm execution result data is **evm code body**. Generate contract address with **keccak(RLP(ETH sender + nonce))**, deploy contract to contract address
+	- **message call**, get contract **evm code** from account code table, parse message data from trx\_code and fill into VM to execute, evm execution result data is as the case may be.
+   	   
+- Gas calculation. maintain native gas system include **intrinsic gas** and **vm gas** usage. Buy gas and refund gas also avalible.
+- Value transfer. If value != 0, transfer value from **sender** to **to** address.
+- If vm execution result != EVMC_SUCCESS. Then need to revert dirty storage
+	- if EVMC_STORAGE_ADDED need to erase
+	- if EVMC_STORAGE_MODIFIED or EVMC_STORAGE_MODIFIED_AGAIN need to update to origin
+	- if EVMC_STORAGE_DELETED need to emplace
+- Log output (via EOSIO print intrinsics), Print vm receipt in **JSON** format and parse easily in JS client
+
+- query state of EVM contract address
+```bash
+/// the scope is EVM contract address id shown in account table 
+cleos -u ${remote} get table ${contract} 6 accountstate
+```
+
+### Requirement 6: 
+
+```   
+The Application MUST implement an action named “create”
+
+Whose inputs are
+An EOSIO account
+An arbitrary-length string
+Which results in a new Account Table entry with
+Balance = 0
+Nonce = 1
+Account identifier = the rightmost 160 bits of the Keccak hash of the RLP encoding of the structure containing only the EOSIO account name and the arbitrary input string
+A transaction containing this action must fail if it is not authorized by the EOSIO account listed in the inputs
+A transaction containing this action must fail if an Account Table entry exists with this EOSIO account associated
+```
+
+### Solution 6:
+
+1. Create action is create 160 bits ETH address. Speculate two kinds of ETH address type from the raw action interpretation.
+
+	- **native ETH address**, the user must have ETH private key
+	- **EOS associate fake ETH address**, user do not have ETH private key
+
+2. Balance represented by **uint256_t** alias type of eosio::checksum256. Balance is recorded as **uint256_t** instead of **asset** because **native Wei** has **18 digits after the decimal point** and can not represent with asset in some cases
+3. Nonce represented by **uint256_t** is consistent with go-ethereum
+
+### Implementation 6:
+
+```c
+[[eosio::action]]
+void create(const name &eos_account, const binary_extension<std::string> &eth_address);
+```
+
+- If the second param has **160 bits**, then set ETH address directly with this param value in account table
+- If the second param arbitrary length string, then generate a fake ETH address which user does not have the private key with above **RLP algorithm**
+
+
+### Requirement 7: 
+
+```
+The Application MUST respond to EOSIO token transfers
+
+Provided that the EOSIO account in the “from” field of the transfer maps to a known and valid Account Table entry through the entry’s unique associated EOSIO account
+Transferred tokens should be added to the Account Table entry’s balance
+```
+
+### Solution 7:
+
+1. ontransfer action will be notified when **linked token contract** transfer action is triggered
+2. Add balance to account table entry. The EOS token sender must be associate EOS account record in account table
+3. The asset precision formally **sym_precision**. Native ETH Wei is **18 digits after the decimal point**. Transit asset amount to Wei, 
+
+	**Wei = amount \* 10 ^ (18 - sym_precision)**
+	
+### Implementation 7:
+```c
+[[eosio::on_notify("*::transfer")]]
+void ontransfer(const name &from, const name &to, const asset &quantity, const std::string memo);
+```
+
+- use **[[eosio::on_notify("\*::transfer")]]** to be notified. Make sure from account not in previleged accounts list **eosio.bpay**, **eosio.names**, **eosio.ram**, **eosio.ramfee**, **eosio.saving**, **eosio.stake**, **eosio.vpay**
+
+- get native token balance from account table
+```bash
+/// lower bound is the left padded 256 bit ETH address
+cleos -u ${remote} get table ${contract} ${contract} account --index 2 --key-type sha256 --lower 000000000000000000000000d81f4358cb8cab53d005e7f47c7ba3f5116000a6
+``` 
+
+### Requirement 8:
+ 
+```
+The Application MUST implement an action named “withdraw”
+
+Whose inputs are
+An EOSIO account
+A token amount
+Which results in
+Deducting the amount from the associated Account Table entry’s balance
+Sending an inline EOSIO token transfer for the amount to the EOSIO account
+A transaction containing this action must fail if it is not authorized by the EOSIO account listed in the inputs OR if such a withdrawal would leave the Account Table entry’s balance negative
+```
+
+### Solution 8:
+
+1. The withdraw action will send back the native token to EOS associate account.
+
+### Implementation 8:
+
+```c
+[[eosio::action]]
+void withdraw(const name &eos_account, const asset &amount);
+```
+
+1. The withdraw action will push an **inline action** for send correspond to amount of token
+2. The application need to **updateauth** to eosio.code
+
+
+### Requirement 9:
+```
+The Application MUST implement some method of specifying the “CHAIN_ID” for EIP-155 compatibility.
+
+This MAY be done at compile time
+This MAY be done with an additional initialization action
+```
+
+### Solution 9:
+
+- [EIP-155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md) is a hard fork at block number: 2,675,000 in ETH.  v = CHAIN\_ID * 2 + 35 or v = CHAIN\_ID * 2 + 36 when CHAIN\_id = 1, v = 37 or 38. 
+- The application only support EIP-155 rules **signature recover**
+
+
+### Additional actions
+1. simulate action
+
+	- Explanation
+	 - Mock API node to send a non-state transaction. Such as check account balance, allowance in ERC20. 
+	 - Dry run action will always be assertion failure. Will not cost gas.
+
+	- Implementation
+
+	```c
+	[[eosio::action]]
+	void simulate(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender);
+	```
+	 - execute same logic with raw action
+	 - always assertion failure
+	 - JS client can get transaction **JSON receipt** in **assertion failure pending output console**
+	 
+    - Dry run example. 
+    ```bash
+    cleos -u ${remote} push action ${contract}  simulate '["f88a028609184e72a0008302710094e8adb07176c578547cad1fbdf0e807197fed13d280a470a0823100000000000000000000000039944247c2edf660d86d57764b58d83b8eee901425a071c38e1d653bbb26f2bdb0dbc536ed15e23fa3363b03cdfe99cbe2440613ba92a04c9c2f2cb1abb28a47243790c1277c35eb1c1d47d956d3f1ff4ac1be3ae574d9"]' -p ${accountb}
+    ```
+	
+
+2. link token
+
+	- record configurable **singleton** extended_symbol in token contract
+
+	- Explanation
+		- record **singleton** extended_symbol in token contract as native **'ether token'** for value transfer and gas fee payment (even though gas price is forced set to 0)
+
+	- Implementation
+	
+	```c
+	[[eosio::action]]
+	void linktoken(const extended_symbol &contract);
+	```
+
+
+3. log action
+	- log receipt information, include EVM execution result, output, data, signature information, gas price, gas usage, emit_logs.
+
+
+	- Explanation
+		- user can check detail EVM execution receipt on chain
+
+	- Implementation
+		- send and inline transaction recorded on the blockchain
+
+	```c
+	[[eosio::action]]
+	void log(const std::string &status_code, 
+	 const std::string &output, 
+	 const std::string &from,
+	 const std::string &to,
+	 const std::string &nonce, 
+	 const std::string &gas_price, 
+	 const std::string &gas_left, 
+	 const std::string &gas_usage, 
+	 const std::string &value, 
+	 const std::string &data, 
+	 const std::string &v, 
+	 const std::string &r, 
+	 const std::string &s, 
+	 const std::string &contract, 
+	 const std::string &eth_emit_logs
+	);
+	```
+4. raw test action
+
+	- The application provide an additional rawtest action in [test branch](https://github.com/eosiosg/eos-challenge/tree/test) to run the [VMTest](https://github.com/ethereum/tests/tree/7497b116a019beb26215cbea4028df068dea06be) 
+	- basic params in json test exec. 
+	```
+	    "exec" : {
+            "address" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "code" : "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff01600055",
+            "data" : "0x",
+            "gas" : "0x0186a0",
+            "gasPrice" : "0x5af3107a4000",
+            "origin" : "0xcd1722f2947def4cf144679da39c4c32bdc35681",
+            "value" : "0x0de0b6b3a7640000"
+        },
+	```
+	
+	- Explanation
+		- run json test 
+
+
+	- Implementation
+
+		```c
+		[[eosio::action]]
+		void eos_evm::rawtest(
+		 std::string &address,
+		 std::string &caller, 
+		 hex_code &code, 
+		 std::string &data, 
+		 std::string &gas,
+		 std::string &gasPrice,
+		 std::string &origin, 
+		 std::string &value
+		);
+		```
