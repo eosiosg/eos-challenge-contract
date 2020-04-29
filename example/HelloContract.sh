@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -v
 #---contract create contract Serialized TX----
 # {
 #   nonce: '0x00',

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -v
 # ERC721----------------------------------with nonce -------------------------------------
 #---create ERC721 contract [name, token_symbol][GameItem, ITM]----
 # {
