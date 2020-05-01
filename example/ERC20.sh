@@ -4,7 +4,7 @@ set -v
 
 cleos -u ${remote} set contract ${contract}  ../${buildfolder}/eos_evm -p ${contract}
 
-cleos -u ${remote} push action ${contract} linktoken '[{"sym":"4,EOS", "contract":"eosio.token"}]' -p ${contract}
+cleos -u ${remote} push action ${contract} linktoken '[{"sym":"4,SYS", "contract":"eosio.token"}]' -p ${contract}
 cleos -u $remote push action eosio updateauth '['"${contract}"',"active","owner",
 {"threshold":1,"keys":[{"key":"EOS7bSJkk2bC3nn7ME2Xv2Uf6ossmQU1zKvmvwmTc7gaH8ZcGGy62","weight":1}],
 "waits":[],"accounts":[{"weight":1,"permission":{"actor":'"${contract}"',"permission":"eosio.code"}}]}]' -p ${contract}
