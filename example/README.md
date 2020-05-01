@@ -1,11 +1,28 @@
 
-# Using test script to deploy byte code of solidity smart contract and execute function in solidity smart contract
+# Using test script to deploy byte code of solidity smart contract and execute functions
 
+
+## Pre-requirement for nodeos
+`write` functions, such as transfer, work just fine.  
+`read` functions, such as get balance, require api node to enable following config   
+```
+1. enable contracts-console = true
+2. enable verbose-http-errors = true
+```
+
+## How to use example
+### bash version
 ```bash
 /// run ERC20 script
 . ./env.sh
 ./preset.sh
 ./ERC20.sh
+```
+### sdk version [example](https://github.com/eosiosg/eos_evm_sdk)
+```
+. ./env.sh
+./preset.sh
+node exmaple.js
 ```
 
 ## Description
