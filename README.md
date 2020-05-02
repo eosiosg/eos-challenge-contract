@@ -189,12 +189,6 @@ void raw(const hex_code &trx_code, const binary_extension<eth_addr_160> &sender)
 	- if EVMC_STORAGE_DELETED need to emplace
 - Log output (via EOSIO print intrinsics), Print vm receipt in **JSON** format and parse easily in JS client
 
-- query state of EVM contract address
-```bash
-/// the scope is EVM contract address id shown in account table 
-cleos -u ${remote} get table ${contract} 6 accountstate
-```
-
 ### Requirement 6: 
 
 ```   
@@ -257,12 +251,6 @@ void ontransfer(const name &from, const name &to, const asset &quantity, const s
 
 - use **[[eosio::on_notify("\*::transfer")]]** to be notified. Make sure from account not in previleged accounts list **eosio.bpay**, **eosio.names**, **eosio.ram**, **eosio.ramfee**, **eosio.saving**, **eosio.stake**, **eosio.vpay**
 
-- get native token balance from account table
-```bash
-/// lower bound is the left padded 256 bit ETH address
-cleos -u ${remote} get table ${contract} ${contract} account --index 2 --key-type sha256 --lower 000000000000000000000000d81f4358cb8cab53d005e7f47c7ba3f5116000a6
-``` 
-
 ### Requirement 8:
  
 ```
@@ -304,6 +292,29 @@ This MAY be done with an additional initialization action
 
 - [EIP-155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md) is a hard fork at block number: 2,675,000 in ETH.  v = CHAIN\_ID * 2 + 35 or v = CHAIN\_ID * 2 + 36 when CHAIN\_id = 1, v = 37 or 38. 
 - The application only support EIP-155 rules **signature recover**
+
+### Requirement 10:
+```
+Ideal submissions will contain documentation for querying EVM contract state and account balances etc.
+```
+
+### Implementation 10:
+
+- query state of EVM contract address
+
+```bash
+/// the scope is EVM contract address id shown in account table 
+
+cleos -u ${remote} get table ${contract} 6 accountstate
+```
+
+- get native token balance from account table
+
+```bash
+/// lower bound is the left padded 256 bit ETH address
+
+cleos -u ${remote} get table ${contract} ${contract} account --index 2 --key-type sha256 --lower 000000000000000000000000d81f4358cb8cab53d005e7f47c7ba3f5116000a6
+``` 
 
 
 ### Additional actions
